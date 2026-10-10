@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -18,7 +17,7 @@ from deluge_yarss2.util import http, logging
 from deluge_yarss2.util.http import urlparse
 
 
-class DummyClass(object):
+class DummyClass:
 
     def __init__(self):
         self.rssfeed = None
@@ -49,7 +48,7 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()
         rssfeed["name"] = "Test"
         rssfeed["url"] = "http://test"
-        rssfeed["update_interval"] = int(10)
+        rssfeed["update_interval"] = 10
         rssfeed["site"] = urlparse.urlparse("http://test.site.com/blabla/blalba.php").netloc
         rssfeed["obey_ttl"] = False
 
@@ -68,10 +67,10 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         dummy = DummyClass()
         rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()
         domain = "testdomain.com"
-        url = "http://%s/blabla/blalba.php" % domain
+        url = f"http://{domain}/blabla/blalba.php"
         rssfeed["name"] = "Test"
         rssfeed["url"] = url
-        rssfeed["update_interval"] = int(10)
+        rssfeed["update_interval"] = 10
         rssfeed["site"] = urlparse.urlparse(url).netloc
         rssfeed["obey_ttl"] = False
 
@@ -81,10 +80,10 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         dialog = DialogRSSFeed(dummy, rssfeed)
         dialog.dialog = dummy
         data = dialog.get_data_fields(cookies=True)
-        self.assertEquals(data["name"], rssfeed["name"])
-        self.assertEquals(data["url"], rssfeed["url"])
-        self.assertEquals(data["obey_ttl"], rssfeed["obey_ttl"])
-        self.assertEquals(data["update_interval"], rssfeed["update_interval"])
-        self.assertEquals(data["site"], rssfeed["site"])
+        self.assertEqual(data["name"], rssfeed["name"])
+        self.assertEqual(data["url"], rssfeed["url"])
+        self.assertEqual(data["obey_ttl"], rssfeed["obey_ttl"])
+        self.assertEqual(data["update_interval"], rssfeed["update_interval"])
+        self.assertEqual(data["site"], rssfeed["site"])
         cookies_hdr = http.get_cookie_header(cookies)
-        self.assertEquals(data["cookies"], cookies_hdr.get("Cookie", ""))
+        self.assertEqual(data["cookies"], cookies_hdr.get("Cookie", ""))

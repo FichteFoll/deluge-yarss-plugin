@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 import os
 import shutil
@@ -19,7 +18,7 @@ def mkdir(path, ignore_errors=True):
             raise
 
 
-class TempDir(object):
+class TempDir:
     """
     class for temporary directories
     creates a (named) directory which is deleted after use.
@@ -91,13 +90,13 @@ class TempDir(object):
             try:
                 shutil.rmtree(self.name)
             except OSError as err:
-                logger.warn("Error when cleaning up directory %s%s: %s", self.name, " (id: %s)" % self.id, err)
+                logger.warning("Error when cleaning up directory %s%s: %s", self.name, f" (id: {self.id})", err)
                 raise
 
         self.name = ""
 
     def __str__(self):
         if self.name:
-            return "temporary directory at: %s%s" % (self.name, " (id: %s)" % self.id)
+            return "temporary directory at: {}{}".format(self.name, f" (id: {self.id})")
         else:
             return "dissolved temporary directory"

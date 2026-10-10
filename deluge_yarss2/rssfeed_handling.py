@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -25,7 +24,7 @@ def _parse_size(string):
         groupdict = match.groupdict()
         size = groupdict["size"]
         unit = groupdict["unit"]
-        size_str = "%s %s" % (size, unit)
+        size_str = f"{size} {unit}"
 
         if unit == "GB":
             size_bytes = float(size) * 1024 * 1024 * 1024
@@ -125,7 +124,7 @@ def fetch_and_parse_rssfeed_atom(url_file_stream_or_string, site_cookies_dict=No
 fetch_and_parse_rssfeed = fetch_and_parse_rssfeed_atom
 
 
-class RSSFeedHandler(object):
+class RSSFeedHandler:
 
     def __init__(self, log):
         self.log = log
@@ -167,8 +166,10 @@ class RSSFeedHandler(object):
             cookie_header = http.get_cookie_header(site_cookies_dict)
             return_dict["cookie_header"] = cookie_header
 
-        self.log.info("Fetching RSS Feed: '%s' with Cookie: '%s' and User-agent: '%s'." %
-                      (rssfeed_data["name"], http.get_cookie_header(cookie_header), user_agent))
+        self.log.info(
+            f"Fetching RSS Feed: '{rssfeed_data['name']}' with Cookie: "
+            f"'{http.get_cookie_header(cookie_header)}' and User-agent: '{user_agent}'."
+        )
 
         # Will abort after 10 seconds if server doesn't answer
         try:
@@ -176,8 +177,10 @@ class RSSFeedHandler(object):
                                                   request_headers=cookie_header, timeout=10)
         except Exception as e:
             self.log.warning("Exception occured in feedparser: " + str(e))
-            self.log.warning("Feedparser was called with url: '%s' using cookies: '%s' and User-agent: '%s'" %
-                             (rssfeed_data["url"], http.get_cookie_header(cookie_header), user_agent))
+            self.log.warning(
+                f"Feedparser was called with url: '{rssfeed_data['url']}' using cookies: "
+                f"'{http.get_cookie_header(cookie_header)}' and User-agent: '{user_agent}'"
+            )
             self.log.warning("Stacktrace:\n" + common.get_exception_string())
             raise DelugeError("Exception occured in feedparser: " + str(e))
 
@@ -288,7 +291,7 @@ class RSSFeedHandler(object):
                 p_include = re.compile(regex, flags)
             except Exception as e:
                 self.log.warning("Regex compile error:" + str(e))
-                message = "Regex: %s" % e
+                message = f"Regex: {e}"
                 p_include = None
 
         if options["regex_exclude"] is not None and options["regex_exclude"] != "":
@@ -298,7 +301,7 @@ class RSSFeedHandler(object):
                 p_exclude = re.compile(regex, flags)
             except Exception as e:
                 self.log.warning("Regex compile error:" + str(e))
-                message = "Regex: %s" % e
+                message = f"Regex: {e}"
                 p_exclude = None
 
         for key in rssfeed_parsed.keys():
@@ -351,8 +354,10 @@ class RSSFeedHandler(object):
         fetch_data["site_cookies_dict"] = http.get_matching_cookies_dict(config["cookies"], rssfeed_data["site"])
         fetch_data["user_agent"] = get_user_agent(rssfeed_data=rssfeed_data)
 
-        self.log.info("Update handler executed on RSS Feed '%s (%s)' (Update interval %d min)" %
-                      (rssfeed_data["name"], rssfeed_data["site"], rssfeed_data["update_interval"]))
+        self.log.info(
+            f"Update handler executed on RSS Feed '{rssfeed_data['name']} ({rssfeed_data['site']})' "
+            f"(Update interval {rssfeed_data['update_interval']} min)"
+        )
 
         for key in config["subscriptions"].keys():
             # subscription_key is given, only that subscription will be run
@@ -384,18 +389,17 @@ class RSSFeedHandler(object):
                 if ttl > 0 and ttl < 524160:
                     fetch_data["ttl"] = ttl
                 else:
-                    self.log.warning("TTL value is invalid: %d" % ttl)
+                    self.log.warning(f"TTL value is invalid: {ttl}")
             except (ValueError, TypeError):
-                self.log.warning("Failed to convert TTL value '%s' to int!" % rssfeed_parsed["ttl"])
+                self.log.warning("Failed to convert TTL value '{}' to int!".format(rssfeed_parsed["ttl"]))
         else:
-            self.log.warning("RSS Feed '%s' should obey TTL, but feed has no TTL value." %
-                             rssfeed_data["name"])
+            self.log.warning("RSS Feed '{}' should obey TTL, but feed has no TTL value.".format(rssfeed_data["name"]))
             self.log.info("Obey TTL option set to False")
             rssfeed_data["obey_ttl"] = False
 
     def fetch_feed(self, subscription_data, rssfeed_data, fetch_data):
         """Search a feed with config 'subscription_data'"""
-        self.log.info("Fetching subscription '%s'." % subscription_data["name"])
+        self.log.info("Fetching subscription '{}'.".format(subscription_data["name"]))
 
         # Feed has not yet been fetched.
         if fetch_data["rssfeed_items"] is None:
@@ -404,7 +408,7 @@ class RSSFeedHandler(object):
             if rssfeed_parsed is None:
                 return
             if "bozo_exception" in rssfeed_parsed:
-                self.log.warning("bozo_exception when parsing rssfeed: %s" % str(rssfeed_parsed["bozo_exception"]))
+                self.log.warning(f"bozo_exception when parsing rssfeed: {rssfeed_parsed['bozo_exception']}")
             if "items" in rssfeed_parsed:
                 fetch_data["rssfeed_items"] = rssfeed_parsed["items"]
                 self.handle_ttl(rssfeed_data, rssfeed_parsed, fetch_data)
@@ -416,8 +420,7 @@ class RSSFeedHandler(object):
         options = subscription_data.copy()
         del options["custom_text_lines"]
         matches, message = self.update_rssfeeds_dict_matching(fetch_data["rssfeed_items"], options=options)
-        self.log.info("%d items in feed, %d matches the filter." %
-                      (len(fetch_data["rssfeed_items"]), len(matches.keys())))
+        self.log.info(f"{len(fetch_data['rssfeed_items'])} items in feed, {len(matches.keys())} matches the filter.")
         last_match_dt = common.isodate_to_datetime(subscription_data["last_match"])
 
         for key in list(matches.keys()):
@@ -426,10 +429,12 @@ class RSSFeedHandler(object):
             matched_updated = common.isodate_to_datetime(matches[key]["updated"])
             if matched_updated and last_match_dt >= matched_updated:
                 if subscription_data["ignore_timestamp"] is True:
-                    self.log.info("Old timestamp: '%s', but ignore option is enabled so add torrent anyways."
-                                  % matches[key]["title"])
+                    self.log.info(
+                        f"Old timestamp: '{matches[key]['title']}', "
+                        "but ignore option is enabled so add torrent anyways."
+                    )
                 else:
-                    self.log.info("Not adding because of old timestamp: '%s'" % matches[key]["title"])
+                    self.log.info("Not adding because of old timestamp: '{}'".format(matches[key]["title"]))
                     del matches[key]
                     continue
             fetch_data["matching_torrents"].append({"title": matches[key]["title"],

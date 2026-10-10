@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -26,7 +25,7 @@ class HTTPTestCase(unittest.TestCase):
         cookie_pairs["key2"] = "value2"
         cookie_pairs["key3"] = "value3"
         encoded = http.encode_cookie_values(cookie_pairs)
-        self.assertEquals(sorted(encoded.split("; ")), expected)
+        self.assertEqual(sorted(encoded.split("; ")), expected)
 
     def test_get_cookie_header(self):
         url = "http://basename.com/øashdnf/klasflas/dfnmalskdfn/malskdfnmasloal"
@@ -40,7 +39,7 @@ class HTTPTestCase(unittest.TestCase):
         expected_cookie = "key2=value2; key1=value1"
         header = http.get_cookie_header(cookies, url)
         self.assertTrue("Cookie" in header)
-        self.assertEquals(sorted(header["Cookie"].split("; ")), sorted(expected_cookie.split("; ")))
+        self.assertEqual(sorted(header["Cookie"].split("; ")), sorted(expected_cookie.split("; ")))
 
     def test_get_matching_cookies_dict(self):
         cookies = {}
@@ -54,16 +53,16 @@ class HTTPTestCase(unittest.TestCase):
 
         matching_cookies = http.get_matching_cookies_dict(cookies, "http://basename.com/blabla")
         self.assertTrue("key1" in matching_cookies)
-        self.assertEquals(matching_cookies["key1"], cookies["0"]["value"]["key1"])
+        self.assertEqual(matching_cookies["key1"], cookies["0"]["value"]["key1"])
         self.assertTrue("key2" in matching_cookies)
-        self.assertEquals(matching_cookies["key2"], cookies["0"]["value"]["key2"])
+        self.assertEqual(matching_cookies["key2"], cookies["0"]["value"]["key2"])
         self.assertFalse("key3" in matching_cookies)
 
     def test_url_fix(self):
-        url = u"http://de.wikipedia.org/wiki/Elf (Begriffsklärung)"
+        url = "http://de.wikipedia.org/wiki/Elf (Begriffsklärung)"
         expected = "http://de.wikipedia.org/wiki/Elf%20(Begriffskl%C3%A4rung)"
         result = http.url_fix(url)
-        self.assertEquals(expected, result)
+        self.assertEqual(expected, result)
 
     @unittest.SkipTest
     def test_feedparser_ampersant_in_url(self):
@@ -79,7 +78,7 @@ class HTTPTestCase(unittest.TestCase):
         parsed_feeds = feedparser.feedparser.parse(file_path)
 
         for item in parsed_feeds['items']:
-            self.assertEquals(expected, item["link"])
+            self.assertEqual(expected, item["link"])
             break
 
     def test_clean_html_body(self):
@@ -145,25 +144,25 @@ class HTTPTestCase(unittest.TestCase):
         self.assertTrue("Rate limited &" in result)
 
     def test_convert_to_utf8_with_declared_charset(self):
-        title = u"Begriffskl\xe4rung"
+        title = "Begriffskl\xe4rung"
         rss = (
-            u"<?xml version='1.0'?>"
-            u"<rss><channel><title>%s</title></channel></rss>" % title
+            "<?xml version='1.0'?>"
+            f"<rss><channel><title>{title}</title></channel></rss>"
         ).encode("ISO-8859-1")
         http_headers = {"content-type": "text/xml; charset=ISO-8859-1"}
         result = {}
         converted = feedparsing.convert_to_utf8(http_headers, rss, result)
         self.assertTrue(title.encode("utf-8") in converted)
-        self.assertEquals("ISO-8859-1", result["encoding"])
+        self.assertEqual("ISO-8859-1", result["encoding"])
 
     def test_parse_content_type_header_matches_cgi(self):
         # Expected values taken from `cgi.parse_header` on Python 3.12:
         # cgi.parse_header("TEXT/XML; charset=UTF-8") == ("TEXT/XML", {"charset": "UTF-8"})
         # cgi.parse_header("xml") == ("xml", {})
-        self.assertEquals(
+        self.assertEqual(
             ("TEXT/XML", {"charset": "UTF-8"}),
             _parse_content_type_header("TEXT/XML; charset=UTF-8"))
-        self.assertEquals(("xml", {}), _parse_content_type_header("xml"))
+        self.assertEqual(("xml", {}), _parse_content_type_header("xml"))
 
     def test_atoma_parsing(self):
         from deluge_yarss2 import atoma
@@ -172,6 +171,6 @@ class HTTPTestCase(unittest.TestCase):
         file_path = common.get_resource(filename, path="tests/data/feeds/")
         parsed_feeds = atoma.parse_rss_file(file_path)
 
-        self.assertEquals('The top100 torrents', parsed_feeds.description)
-        self.assertEquals('https://therss.so', parsed_feeds.link)
-        self.assertEquals(None, parsed_feeds.ttl)
+        self.assertEqual('The top100 torrents', parsed_feeds.description)
+        self.assertEqual('https://therss.so', parsed_feeds.link)
+        self.assertEqual(None, parsed_feeds.ttl)

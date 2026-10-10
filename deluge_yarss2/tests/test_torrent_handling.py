@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -33,7 +32,7 @@ test_component = None
 log = logging.getLogger(plugin_tests_logger_name)
 
 
-class TestComponent(object):
+class TestComponent:
     __test__ = False
 
     def __init__(self, add_retval=True):
@@ -108,9 +107,9 @@ class TorrentHandlingTestCase(unittest.TestCase):
         torrent_added = test_component.added.pop()
         self.assertTrue(torrent_added.success)
         self.assertFalse(torrent_added.filedump is None, "Filedump is not None")
-        self.assertEquals(torrent_added.filename, os.path.split(filename)[1])
+        self.assertEqual(torrent_added.filename, os.path.split(filename)[1])
         self.assertFalse(torrent_added.filedump is None)
-        self.assertEquals(torrent_download.url, filename)
+        self.assertEqual(torrent_download.url, filename)
 
     def test_add_torrent_raise_AddTorrentError(self):  # noqa: N802
         handler = TorrentHandler(self.log)
@@ -118,7 +117,7 @@ class TorrentHandlingTestCase(unittest.TestCase):
         torrent_info = {"link": filename, "site_cookies_dict": {}}
 
         with mock.patch.object(TestComponent, 'add') as test_component_add:
-            test_component_add.side_effect = AddTorrentError('Torrent already in session (%s).' % 1)
+            test_component_add.side_effect = AddTorrentError(f'Torrent already in session ({1}).')
             torrent_added = handler.add_torrent(torrent_info)
             self.assertFalse(torrent_added.success)
 
@@ -129,7 +128,7 @@ class TorrentHandlingTestCase(unittest.TestCase):
         download = handler.add_torrent(torrent_info)
         self.assertTrue(download.success)
         self.assertTrue(download.is_magnet)
-        self.assertEquals(test_component.added.pop().magnet, torrent_url)
+        self.assertEqual(test_component.added.pop().magnet, torrent_url)
 
     def test_add_torrent_ret_false(self):
         handler = TorrentHandler(self.log)
@@ -142,8 +141,8 @@ class TorrentHandlingTestCase(unittest.TestCase):
         torrent_download = handler.add_torrent(torrent_info)
         self.assertFalse(torrent_download.success)
         # Set by download_torrent_file
-        self.assertEquals(torrent_download.torrent_url, torrent_url)
-        self.assertEquals(torrent_download.cookies, cookies)
+        self.assertEqual(torrent_download.torrent_url, torrent_url)
+        self.assertEqual(torrent_download.cookies, cookies)
         test_component.download_success = True
 
     def test_add_torrent_with_subscription_data(self):
@@ -163,10 +162,10 @@ class TorrentHandlingTestCase(unittest.TestCase):
         self.assertTrue(d.success)
         added = test_component.added.pop()
         self.assertTrue(added.options["move_completed"])
-        self.assertEquals(added.options["move_completed_path"], subscription_data["move_completed"])
-        self.assertEquals(added.options["download_location"], subscription_data["download_location"])
+        self.assertEqual(added.options["move_completed_path"], subscription_data["move_completed"])
+        self.assertEqual(added.options["download_location"], subscription_data["download_location"])
         # When using DEFAULT, the default value for add_paused on TorrentSettings is False
-        self.assertEquals(added.options["add_paused"], False)
+        self.assertEqual(added.options["add_paused"], False)
 
     def test_get_torrent(self):
         handler = TorrentHandler(self.log)
@@ -177,8 +176,8 @@ class TorrentHandlingTestCase(unittest.TestCase):
                         "site_cookies_dict": {"cookiekey": "cookievalue"},
                         "user_agent": "test"}
         download = handler.get_torrent(torrent_info)
-        self.assertEquals(download.headers, {'User-Agent': 'test'})
-        self.assertEquals(download.cookies, {'cookiekey': 'cookievalue'})
+        self.assertEqual(download.headers, {'User-Agent': 'test'})
+        self.assertEqual(download.cookies, {'cookiekey': 'cookievalue'})
         self.assertFalse(download.is_magnet)
 
     def test_get_torrent_magnet(self):
@@ -220,7 +219,7 @@ class TorrentHandlingTestCase(unittest.TestCase):
             saved_subscriptions.append(subscription_data)
 
         handler.add_torrents(save_subscription_func, matching_torrents, self.config.get_config())
-        self.assertEquals(len(saved_subscriptions), 3)
+        self.assertEqual(len(saved_subscriptions), 3)
         handler.use_filedump = None
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):
@@ -258,7 +257,7 @@ class DownloadTorrentFileTestCase(unittest.TestCase):
         self.addCleanup(thread.join)
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
-        self.base_url = "http://127.0.0.1:%d" % self.server.server_address[1]
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
         self.handler = TorrentHandler(log)
 
     def test_download_torrent_file(self):

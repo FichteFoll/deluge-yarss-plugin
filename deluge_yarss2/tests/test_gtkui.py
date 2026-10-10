@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -25,7 +24,7 @@ from .utils.log_utils import plugin_tests_logger_name
 deluge_yarss2.gtk3ui.gtkui.component = test_gtkui
 
 
-class DummyComponent(object):
+class DummyComponent:
     def add_page(self, name, widget):
         pass
 
@@ -89,7 +88,7 @@ class GtkUIWithCoreTestCase(unittest.TestCase):
         yield component.start()  # Necessary to avoid 'Reactor was unclean' error
 
         labels = yield self.gtkui.plugins_enabled_changed("Label")
-        self.assertEquals([""], labels)
+        self.assertEqual([""], labels)
 
         # Add some labels
         client.label.add("Test-label")

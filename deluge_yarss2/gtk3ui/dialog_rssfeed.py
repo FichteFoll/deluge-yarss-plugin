@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -19,7 +18,7 @@ from deluge_yarss2.util.http import urlparse
 from .common import Gtk, set_tooltip_markup
 
 
-class DialogRSSFeed(object):
+class DialogRSSFeed:
 
     def __init__(self, gtkui, rssfeed):
         self.gtkUI = gtkui
@@ -95,8 +94,8 @@ class DialogRSSFeed(object):
         allowed_types = ('http', 'https', 'ftp', 'file', 'feed')
         if urlparse.urlparse(rssfeed_data["url"])[0] not in allowed_types:
             md = Gtk.MessageDialog(None, Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.INFO,
-                                   Gtk.ButtonsType.CLOSE, "The RSS Feed URL must begin with one of: %s" %
-                                   (", ".join(t for t in allowed_types)))
+                                   Gtk.ButtonsType.CLOSE,
+                                   f"The RSS Feed URL must begin with one of: {', '.join(t for t in allowed_types)}")
             md.run()
             md.destroy()
             return

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -76,8 +75,8 @@ class CoreTestCase(unittest.TestCase):
         download = TorrentDownload(download_dict)
 
         self.assertTrue(download.success, "Download failed, but should be True")
-        self.assertEquals(torrent_url, test_torrent_handling.test_component.downloads.pop().torrent_url)
-        self.assertEquals(test_torrent_handling.test_component.added.pop().filename, torrent_name)
+        self.assertEqual(torrent_url, test_torrent_handling.test_component.downloads.pop().torrent_url)
+        self.assertEqual(test_torrent_handling.test_component.added.pop().filename, torrent_name)
 
     def test_add_torrent_default_user_agent(self):
         torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
@@ -89,7 +88,7 @@ class CoreTestCase(unittest.TestCase):
         self.core.yarss_config = self.config
 
         download_dict = self.core.add_torrent(torrent_info)
-        self.assertEquals(download_dict["headers"]["User-Agent"], default_user_agent)
+        self.assertEqual(download_dict["headers"]["User-Agent"], default_user_agent)
 
     def test_add_torrent_custom_user_agent(self):
         torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
@@ -102,7 +101,7 @@ class CoreTestCase(unittest.TestCase):
         self.core.yarss_config = self.config
 
         download_dict = self.core.add_torrent(torrent_info)
-        self.assertEquals(download_dict["headers"]["User-Agent"], custom_user_agent)
+        self.assertEqual(download_dict["headers"]["User-Agent"], custom_user_agent)
 
     def test_initiate_rssfeed_update(self):
         config = test_common.get_test_config_dict()
@@ -199,13 +198,13 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
         test_dirs = []
 
         for i in range(3):
-            dirpath = tmp_paths_dir.mkdirs("dir%d" % (i))
-            test_dirs.append("%s/" % dirpath)
+            dirpath = tmp_paths_dir.mkdirs(f"dir{i}")
+            test_dirs.append(f"{dirpath}/")
 
         method = "core.get_completion_paths"
         args = []
 
-        completion_text = "%s/d" % tmp_paths_dir.path
+        completion_text = f"{tmp_paths_dir.path}/d"
         arg = {
             "completion_text": completion_text,
             "show_hidden_files": False

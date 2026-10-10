@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -13,6 +12,7 @@ all the interfaces.
 """
 
 import os
+from hashlib import sha1 as sha
 
 from deluge import bencode
 from deluge.common import decode_string
@@ -20,15 +20,10 @@ from deluge.ui.common import FileTree, FileTree2
 
 from deluge_yarss2.util import logging
 
-try:
-    from hashlib import sha1 as sha
-except ImportError:
-    from sha import sha
-
 log = logging.getLogger(__name__)
 
 
-class TorrentInfo(object):
+class TorrentInfo:
     """
     Collects information about a torrent file.
 

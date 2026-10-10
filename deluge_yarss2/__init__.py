@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -24,18 +23,18 @@ class CorePlugin(PluginInitBase):
     def __init__(self, plugin_name):
         from .core import Core as CorePluginClass
         self._plugin_cls = CorePluginClass
-        super(CorePlugin, self).__init__(plugin_name)
+        super().__init__(plugin_name)
 
 
 class Gtk3UIPlugin(PluginInitBase):
     def __init__(self, plugin_name):
         from .gtk3ui.gtkui import GtkUI as GtkUIPluginClass
         self._plugin_cls = GtkUIPluginClass
-        super(Gtk3UIPlugin, self).__init__(plugin_name)
+        super().__init__(plugin_name)
 
 
 class WebUIPlugin(PluginInitBase):
     def __init__(self, plugin_name):
         from .webui import WebUI as WebUIPluginClass
         self._plugin_cls = WebUIPluginClass
-        super(WebUIPlugin, self).__init__(plugin_name)
+        super().__init__(plugin_name)

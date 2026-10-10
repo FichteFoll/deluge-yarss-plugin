@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -13,7 +12,7 @@ import deluge.component as component
 from deluge_yarss2.util.common import get_resource
 
 
-class DialogEmailMessage():
+class DialogEmailMessage:
 
     def __init__(self, gtkui, message_data={}):
         self.gtkUI = gtkui

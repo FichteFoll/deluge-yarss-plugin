@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -55,8 +54,8 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
             # Does the timer have the correct interval?
             interval = self.scheduler.rssfeed_timers[key]["timer"].interval
-            self.assertEquals(self.rssfeeds[key]["update_interval"] * 60, interval)
-            self.assertEquals(self.rssfeeds[key]["update_interval"],
+            self.assertEqual(self.rssfeeds[key]["update_interval"] * 60, interval)
+            self.assertEqual(self.rssfeeds[key]["update_interval"],
                               self.scheduler.rssfeed_timers[key]["update_interval"])
 
     def test_disable_timers(self):
@@ -72,7 +71,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.assertTrue(self.scheduler.delete_timer("0"))
         self.assertFalse(self.scheduler.delete_timer("-1"))
 
-        self.assertEquals(len(self.scheduler.rssfeed_timers.keys()), 4)
+        self.assertEqual(len(self.scheduler.rssfeed_timers.keys()), 4)
         self.assertFalse("0" in self.scheduler.rssfeed_timers)
 
     def test_reschedule_timer(self):
@@ -80,8 +79,8 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.assertTrue(self.scheduler.set_timer("0", 60))
 
         interval = self.scheduler.rssfeed_timers["0"]["timer"].interval
-        self.assertEquals(60 * 60, interval)
-        self.assertEquals(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
+        self.assertEqual(60 * 60, interval)
+        self.assertEqual(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
 
     def test_schedule_timer(self):
         # Add new timer (with key "5") with interval 60 minutes
@@ -89,11 +88,11 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         # Verify timer values
         interval = self.scheduler.rssfeed_timers["5"]["timer"].interval
-        self.assertEquals(60 * 60, interval)
-        self.assertEquals(self.scheduler.rssfeed_timers["5"]["update_interval"], 60)
+        self.assertEqual(60 * 60, interval)
+        self.assertEqual(self.scheduler.rssfeed_timers["5"]["update_interval"], 60)
 
         # Should now be 6 timers
-        self.assertEquals(len(self.scheduler.rssfeed_timers.keys()), 6)
+        self.assertEqual(len(self.scheduler.rssfeed_timers.keys()), 6)
 
     def test_rssfeed_update_handler(self):
         subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(rssfeed_key="0", key="0")
@@ -104,7 +103,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         # Run the rssfeed with key 0
         self.scheduler.rssfeed_update_handler("0")
-        self.assertNotEquals(old_last_update, self.rssfeeds["0"]["last_update"])
+        self.assertNotEqual(old_last_update, self.rssfeeds["0"]["last_update"])
 
         old_last_update = self.rssfeeds["0"]["last_update"]
 
@@ -112,7 +111,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.scheduler.rssfeed_update_handler(None, "0")
 
         # last_update should not have changed
-        self.assertEquals(old_last_update, self.rssfeeds["0"]["last_update"])
+        self.assertEqual(old_last_update, self.rssfeeds["0"]["last_update"])
 
     def test_rssfeed_update_handler_exception(self):
         subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(rssfeed_key="0", key="0")
@@ -146,10 +145,10 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.scheduler.rssfeed_update_handler("0")
 
         # Verify that update_interval of rssfeed in config was updated
-        self.assertEquals(yarss_config.get_config()["rssfeeds"]["0"]["update_interval"], 60)
+        self.assertEqual(yarss_config.get_config()["rssfeeds"]["0"]["update_interval"], 60)
 
         # Verify that update_interval of the timer was updated
-        self.assertEquals(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
+        self.assertEqual(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
         self.scheduler.disable_timers()
 
     def test_rssfeed_update_queue(self):
@@ -164,7 +163,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         main_thread = threading.current_thread()
 
         def add_torrents_cb(*arg):
-            self.assertEquals(main_thread, threading.current_thread(),
+            self.assertEqual(main_thread, threading.current_thread(),
                               "add_torrents must be called from the main thread!")
             add_torrents_count.append(0)
         self.scheduler.add_torrents_func = add_torrents_cb
@@ -175,7 +174,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         d_last = self.scheduler.queue_rssfeed_update(rssfeed_key="2")
 
         def verify_callback_count(args):
-            self.assertEquals(len(add_torrents_count), 3)
+            self.assertEqual(len(add_torrents_count), 3)
         return DeferredList([d_first, d_last]).addBoth(verify_callback_count)
 
 
@@ -192,7 +191,7 @@ class RSSFeedRunQueueTestCase(unittest.TestCase):
             # Save the start and end time of the job
             runtime_dict[id] = {"start": deluge_yarss2.util.common.get_current_date()}
             # Test that the job is not run in main thread
-            self.assertNotEquals(threading.current_thread(), main_thread)
+            self.assertNotEqual(threading.current_thread(), main_thread)
             runtime_dict[id]["end"] = deluge_yarss2.util.common.get_current_date()
             return id
 
@@ -222,9 +221,9 @@ class RSSFeedRunQueueTestCase(unittest.TestCase):
         d.chainDeferred(d_verify)
 
         def verify_callback_results(args):
-            self.assertEquals(len(ids), len(result_callback_ids))
+            self.assertEqual(len(ids), len(result_callback_ids))
             for i in range(len(ids)):
-                self.assertEquals(ids[i], result_callback_ids[i])
+                self.assertEqual(ids[i], result_callback_ids[i])
 
         d_verify_callback = Deferred()
         d_verify_callback.addCallback(verify_callback_results)

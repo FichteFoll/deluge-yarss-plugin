@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -6,7 +5,6 @@
 # the additional special exception to link portions of this program with the OpenSSL library.
 # See LICENSE for more details.
 #
-from __future__ import print_function
 
 import base64
 import smtplib
@@ -34,14 +32,14 @@ def base64_encoded(msg_str):
     return msg_base64_str
 
 
-class Message(object):
+class Message:
     def __init__(self, from_address, to_address, message):
         self.from_address = from_address
         self.to_address = to_address
         self.message = message
 
 
-class DummySMTP(object):
+class DummySMTP:
     def __init__(self, server_address, port):
         self.server_address = server_address
         self.port = port
@@ -95,10 +93,10 @@ class YaRSS2EmailTestCase(unittest.TestCase):
         global smtp
         global inbox
         self.assertTrue(send_email(email, email_config))
-        self.assertEquals(inbox[0].from_address, email_config["from_address"])
-        self.assertEquals(inbox[0].to_address, email["to_address"])
-        self.assertEquals(smtp.server_address, email_config["smtp_server"])
-        self.assertEquals(smtp.port, smtplib.SMTP_PORT)
+        self.assertEqual(inbox[0].from_address, email_config["from_address"])
+        self.assertEqual(inbox[0].to_address, email["to_address"])
+        self.assertEqual(smtp.server_address, email_config["smtp_server"])
+        self.assertEqual(smtp.port, smtplib.SMTP_PORT)
 
     def test_send_email_with_auth(self):
         email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
@@ -117,12 +115,12 @@ class YaRSS2EmailTestCase(unittest.TestCase):
         global smtp
         global inbox
         self.assertTrue(send_email(email, email_config))
-        self.assertEquals(inbox[0].from_address, email_config["from_address"])
-        self.assertEquals(inbox[0].to_address, email["to_address"])
-        self.assertEquals(smtp.server_address, email_config["smtp_server"])
-        self.assertEquals(smtp.port, int(email_config["smtp_port"]))
-        self.assertEquals(smtp.username, email_config["smtp_username"])
-        self.assertEquals(smtp.password, email_config["smtp_password"])
+        self.assertEqual(inbox[0].from_address, email_config["from_address"])
+        self.assertEqual(inbox[0].to_address, email["to_address"])
+        self.assertEqual(smtp.server_address, email_config["smtp_server"])
+        self.assertEqual(smtp.port, int(email_config["smtp_port"]))
+        self.assertEqual(smtp.username, email_config["smtp_username"])
+        self.assertEqual(smtp.password, email_config["smtp_password"])
 
         self.assertTrue(smtp.ehlo_called)
         self.assertTrue(smtp.starttls_called)
@@ -168,25 +166,25 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         email - a dictionary with the email info
         email_config - a dictionary with the email configuration options
         """
-        self.assertEquals(email_message.to_address, email["to_address"])
+        self.assertEqual(email_message.to_address, email["to_address"])
         lines = email_message.message.splitlines()
 
         # Content type - multipart
-        self.assertEquals(lines[0], self.expected_messsage_multipart[0])
+        self.assertEqual(lines[0], self.expected_messsage_multipart[0])
         # MIME version
-        self.assertEquals(lines[2], self.expected_messsage_multipart[1])
+        self.assertEqual(lines[2], self.expected_messsage_multipart[1])
         # Subject
-        self.assertEquals(lines[3], self.expected_messsage_multipart[2] % email["subject"])
+        self.assertEqual(lines[3], self.expected_messsage_multipart[2] % email["subject"])
         # From address
-        self.assertEquals(lines[4], self.expected_messsage_multipart[3] % email_config["from_address"])
+        self.assertEqual(lines[4], self.expected_messsage_multipart[3] % email_config["from_address"])
         # To address
-        self.assertEquals(lines[5], self.expected_messsage_multipart[4] % email["to_address"])
+        self.assertEqual(lines[5], self.expected_messsage_multipart[4] % email["to_address"])
         # Content type text/plain
-        self.assertEquals(lines[8], self.expected_messsage_multipart[5])
+        self.assertEqual(lines[8], self.expected_messsage_multipart[5])
         # MIME version
-        self.assertEquals(lines[9], self.expected_messsage_multipart[6])
+        self.assertEqual(lines[9], self.expected_messsage_multipart[6])
         # Content transfer encoding
-        self.assertEquals(lines[10], self.expected_messsage_multipart[7])
+        self.assertEqual(lines[10], self.expected_messsage_multipart[7])
 
         # Message content
         index = 12
@@ -197,14 +195,14 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             index += 1
 
         msg_plain_base64 = base64_encoded(email_data["message"])
-        self.assertEquals(message_base64, msg_plain_base64)
+        self.assertEqual(message_base64, msg_plain_base64)
 
         # Content type text/html
-        self.assertEquals(lines[index + 2], self.expected_messsage_multipart[8])
+        self.assertEqual(lines[index + 2], self.expected_messsage_multipart[8])
         # MIME version
-        self.assertEquals(lines[index + 3], self.expected_messsage_multipart[9])
+        self.assertEqual(lines[index + 3], self.expected_messsage_multipart[9])
         # Content transfer encoding
-        self.assertEquals(lines[index + 4], self.expected_messsage_multipart[10])
+        self.assertEqual(lines[index + 4], self.expected_messsage_multipart[10])
 
         message_base64 = ""
         index += 6
@@ -214,7 +212,7 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             index += 1
 
         msg_plain_base64 = base64_encoded(email_data["message_html"])
-        self.assertEquals(message_base64, msg_plain_base64)
+        self.assertEqual(message_base64, msg_plain_base64)
 
     def verify_email(self, email_message, email, email_config):
         """
@@ -222,24 +220,24 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         email - a dictionary with the email info
         email_config - a dictionary with the email configuration options
         """
-        self.assertEquals(email_message.to_address, email["to_address"])
+        self.assertEqual(email_message.to_address, email["to_address"])
         lines = email_message.message.splitlines()
         # Content type
-        self.assertEquals(lines[0], self.expected_messsage[0])
+        self.assertEqual(lines[0], self.expected_messsage[0])
         # MIME version
-        self.assertEquals(lines[1], self.expected_messsage[1])
+        self.assertEqual(lines[1], self.expected_messsage[1])
         # Content transfer encoding
-        self.assertEquals(lines[2], self.expected_messsage[2])
+        self.assertEqual(lines[2], self.expected_messsage[2])
         # Subject
-        self.assertEquals(lines[3], self.expected_messsage[3] % email["subject"])
+        self.assertEqual(lines[3], self.expected_messsage[3] % email["subject"])
         # From address
-        self.assertEquals(lines[4], self.expected_messsage[4] % email_config["from_address"])
+        self.assertEqual(lines[4], self.expected_messsage[4] % email_config["from_address"])
         # To address
-        self.assertEquals(lines[5], self.expected_messsage[5] % email["to_address"])
+        self.assertEqual(lines[5], self.expected_messsage[5] % email["to_address"])
 
         # Line 7 is the entire message content encoded in base64.
         base64_email_str = base64_encoded(email["message"])
-        self.assertEquals(lines[7], base64_email_str)
+        self.assertEqual(lines[7], base64_email_str)
 
     def test_send_torrent_email_with_deferred(self):
         def callback(args):

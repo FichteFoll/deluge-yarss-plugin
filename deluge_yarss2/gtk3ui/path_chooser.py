@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2013 Bro <bro.development@gmail.com>
 #
@@ -7,7 +6,6 @@
 # See LICENSE for more details.
 #
 
-from __future__ import unicode_literals
 
 import deluge.component as component
 from deluge.ui.client import client
@@ -74,10 +72,10 @@ class YaRSS2PathChoosersHandler(component.Component):
         for key in self.config_keys_to_funcs_mapping:
             chooser.config_key_funcs[key] = [None, None]
             chooser.config_key_funcs[key][0] = getattr(
-                chooser, 'get_%s' % self.config_keys_to_funcs_mapping[key]
+                chooser, f'get_{self.config_keys_to_funcs_mapping[key]}'
             )
             chooser.config_key_funcs[key][1] = getattr(
-                chooser, 'set_%s' % self.config_keys_to_funcs_mapping[key]
+                chooser, f'set_{self.config_keys_to_funcs_mapping[key]}'
             )
 
         self.path_choosers.append(chooser)
@@ -128,7 +126,7 @@ class YaRSS2PathChoosersHandler(component.Component):
 class PathChooser(PathChooserComboBox):
     def __init__(self, paths_config_key=None, parent=None):
         self.paths_config_key = paths_config_key
-        super(PathChooser, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.chooser_handler = YaRSS2PathChoosersHandler()
         self.chooser_handler.register_chooser(self)
         self.set_auto_completer_func(self.on_completion)

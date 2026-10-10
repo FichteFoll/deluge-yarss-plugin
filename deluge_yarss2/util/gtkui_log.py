@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -12,7 +11,7 @@ from deluge.event import DelugeEvent
 from deluge_yarss2.util.common import get_current_date_in_isoformat
 
 
-class GTKUILogger(object):
+class GTKUILogger:
     """This class handles messages going to the GTKUI log message pane"""
 
     def __init__(self, textview):
@@ -26,7 +25,7 @@ class GTKUILogger(object):
         def add_msg():
             buf = self.textview.get_buffer()
             time = get_current_date_in_isoformat()
-            msg_to_append = "(%s): %s" % (time, message)
+            msg_to_append = f"({time}): {message}"
             buf.insert(buf.get_end_iter(), msg_to_append + "\n")
         from gi.repository import GLib  # Do not import on top as only the client needs to have this package
         GLib.idle_add(add_msg)

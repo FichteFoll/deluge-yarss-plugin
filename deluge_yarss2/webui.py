@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2008 Martijn Voncken <mvoncken@gmail.com>
 #
@@ -11,7 +10,6 @@
 # See LICENSE for more details.
 #
 
-from __future__ import unicode_literals
 
 import logging
 

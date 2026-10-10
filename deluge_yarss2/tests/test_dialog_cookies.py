@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -19,7 +18,7 @@ from deluge_yarss2.util import logging
 from .utils.log_utils import plugin_tests_logger_name
 
 
-class DummyClass(object):
+class DummyClass:
 
     def __init__(self):
         self.cookie_data = None
@@ -58,4 +57,4 @@ class DialogCookiesTestCase(unittest.TestCase):
         dialog.on_button_save_clicked(None)
 
         self.test_cookie["value"]["key1"] = "value1"
-        self.assertEquals(self.test_cookie, dummy.cookie_data)
+        self.assertEqual(self.test_cookie, dummy.cookie_data)

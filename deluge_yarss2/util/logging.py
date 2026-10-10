@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -18,7 +17,7 @@ from deluge_yarss2.util.gtkui_log import GtkUILogMessageEvent
 log = logging.getLogger(__name__)
 
 
-class Logger(object):
+class Logger:
 
     def __init__(self, gtkui_logger=None, logger=log):
         self.gtkui_logger = gtkui_logger
@@ -53,7 +52,7 @@ class Logger(object):
         self.handle_gtkui_log(message, gtkui)
 
     def _msg(self, msg):
-        return "%s.%s:%s: %s" % ("YaRSS2", common.filename(), common.linenumber(), msg)
+        return "{}.{}:{}: {}".format("YaRSS2", common.filename(), common.linenumber(), msg)
 
     def gtkui_log_message_event(self, message):
         try:

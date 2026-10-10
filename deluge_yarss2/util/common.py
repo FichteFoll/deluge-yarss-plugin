@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -6,7 +5,6 @@
 # the additional special exception to link portions of this program with the OpenSSL library.
 # See LICENSE for more details.
 #
-from __future__ import print_function
 
 import atexit
 import datetime
@@ -19,9 +17,6 @@ import tempfile
 from pathlib import Path, PurePosixPath
 
 import deluge_yarss2
-
-PY2 = sys.version_info.major == 2
-PY3 = sys.version_info.major == 3
 
 
 def get_version():
@@ -198,7 +193,7 @@ def dicts_equals(dict1, dict2, debug=False):
             # Compare values
             if dict1[key] != dict2[key]:
                 if debug:
-                    print("Value for key '%s' differs. Value1: '%s', Value2: '%s'" % (key, dict1[key], dict2[key]))
+                    print(f"Value for key '{key}' differs. Value1: '{dict1[key]}', Value2: '{dict2[key]}'")
                 ret = False
     return ret
 
@@ -239,10 +234,7 @@ def get_completion_paths(args):
 
     def get_subdirs(dirname):
         try:
-            if PY2:
-                return os.walk(dirname).__next__[1]
-            else:
-                return next(os.walk(dirname))[1]
+            return next(os.walk(dirname))[1]
         except StopIteration:
             # Invalid dirname
             return []
@@ -279,9 +271,9 @@ def get_completion_paths(args):
 
 class GeneralSubsConf:
     """General subscription config"""
-    DISABLED = u"False"
-    ENABLED = u"True"
-    DEFAULT = u"Default"
+    DISABLED = "False"
+    ENABLED = "True"
+    DEFAULT = "Default"
 
     def __init__(self):
         pass

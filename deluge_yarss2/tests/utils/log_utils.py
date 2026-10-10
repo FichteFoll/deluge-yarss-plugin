@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 import logging
 import os
@@ -46,7 +45,7 @@ def get_str_from_log_level(level):
     for k, v in log_str_to_levels.items():
         if level == v:
             return k
-    raise Exception("No level with value %s" % level)
+    raise Exception(f"No level with value {level}")
 
 
 def setup_tests_logging():
@@ -61,7 +60,7 @@ def setup_tests_loggers(yarss2_tests_log_level_str, yarss2_log_level_str, deluge
     def get_level(str_level):
         log_level = get_log_level_from_string(str_level, 'notset')
         if log_level == logging.NOTSET:
-            raise Exception("Bad log level given: '%s'" % (str_level))
+            raise Exception(f"Bad log level given: '{str_level}'")
         return log_level
 
     if yarss2_tests_log_level_str:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -30,7 +29,7 @@ from deluge_yarss2.util import logging
 from .utils.log_utils import plugin_tests_logger_name
 
 
-class TestGTKUIBase(object):
+class TestGTKUIBase:
     __test__ = False
 
     def __init__(self):
@@ -101,7 +100,7 @@ class DialogSubscriptionTestCase(ComponentTestBase):
                     match_count += 1
                     self.assertTrue(p.search(result[k]["title"]))
 
-            self.assertEquals(expected_match_count, match_count)
+            self.assertEqual(expected_match_count, match_count)
 
         deferred = self.run_select_rssfeed(subscription_config=subscription_config, callback_func=verify_result)
         return deferred
@@ -131,7 +130,7 @@ class DialogSubscriptionTestCase(ComponentTestBase):
             def pass_func(*arg):
                 return defer.succeed(None)
 
-            class DialogWrapper(object):
+            class DialogWrapper:
                 def __init__(self, dialog):
                     self.dialog = dialog
 
@@ -176,11 +175,11 @@ class DialogSubscriptionTestCase(ComponentTestBase):
                 if result[k]["matches"]:
                     match_count += 1
                     self.assertTrue(p_include.search(result[k]["title"]),
-                                    "Expected '%s' to in '%s'" % (include_regex, result[k]["title"]))
+                                    "Expected '{}' to in '{}'".format(include_regex, result[k]["title"]))
                 else:
                     self.assertTrue(p_exclude.search(result[k]["title"]),
-                                    "Expected '%s' to in '%s'" % (exclude_regex, result[k]["title"]))
-            self.assertEquals(match_count, expected_match_count)
+                                    "Expected '{}' to in '{}'".format(exclude_regex, result[k]["title"]))
+            self.assertEqual(match_count, expected_match_count)
 
         deferred = self.run_select_rssfeed(callback_func=run_search_test)
         return deferred
@@ -198,7 +197,7 @@ class DialogSubscriptionTestCase(ComponentTestBase):
                 if deluge_yarss2.util.common.dicts_equals(dict1[k1], dict2[k2]):
                     break
             else:
-                raise AssertionError("Value for key '%s' in dict1 not found in dict2" % (k1))
+                raise AssertionError(f"Value for key '{k1}' in dict1 not found in dict2")
         return True
 
     def get_rssfeed_store_content(self, subscription_dialog):

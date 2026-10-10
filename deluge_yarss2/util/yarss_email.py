@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -37,7 +36,7 @@ def send_email(email_conf, server_conf):
         # Send html message
         mime_message = MIMEText(email_conf["message"].encode('utf-8'), "html", _charset='utf-8')
     else:
-        log.warn("Email config must contain either 'message' or 'message_html'")
+        log.warning("Email config must contain either 'message' or 'message_html'")
         return False
 
     mime_message["Subject"] = email_conf["subject"]
@@ -53,12 +52,14 @@ def send_email(email_conf, server_conf):
     try:
         mail_server = smtplib.SMTP(server_conf["smtp_server"], port)
     except Exception as e:
-        log.error("There was an error sending the notification email: %s" % e)
+        log.error(f"There was an error sending the notification email: {e}")
         return False
 
-    log.info("Sending email message:\nTo: %s\nFrom: %s\nSubject: %s\n" %
-             (mime_message["To"], mime_message["From"], mime_message["Subject"]))
-    log.info("Server: %s, port: %s, authentication: %s" % (server_conf["smtp_server"],
+    log.info(
+        f"Sending email message:\nTo: {mime_message['To']}\nFrom: {mime_message['From']}\n"
+        f"Subject: {mime_message['Subject']}\n"
+    )
+    log.info("Server: {}, port: {}, authentication: {}".format(server_conf["smtp_server"],
                                                            server_conf["smtp_port"],
                                                            server_conf["smtp_authentication"]))
     if server_conf["smtp_authentication"]:
@@ -68,14 +69,14 @@ def send_email(email_conf, server_conf):
         try:
             mail_server.login(server_conf["smtp_username"], server_conf["smtp_password"])
         except smtplib.SMTPHeloError:
-            log.warn("The server didn't reply properly to the helo greeting")
+            log.warning("The server didn't reply properly to the helo greeting")
         except smtplib.SMTPAuthenticationError:
-            log.warn("The server didn't accept the username/password combination")
+            log.warning("The server didn't accept the username/password combination")
     try:
         mail_server.sendmail(server_conf["from_address"], email_conf["to_address"], mime_message.as_string())
         mail_server.quit()
     except Exception as e:
-        log.error("Sending email notification failed: %s" % e)
+        log.error(f"Sending email notification failed: {e}")
         return False
     else:
         log.info("Sending email notification of finished torrent was successful")
@@ -90,7 +91,7 @@ def send_torrent_email(email_configurations, email_msg, subscription_data=None,
     email_msg - a dictionary with the email data (as saved in the YARSS config)
     torrents - a tuple containing the subscription data and a list of torrent names.
     """
-    log.info("Sending email '%s'" % email_msg["name"])
+    log.info("Sending email '{}'".format(email_msg["name"]))
     email_data["to_address"] = email_msg["to_address"]
     email_data["subject"] = email_msg["subject"]
     email_data["message"] = email_msg["message"]
@@ -102,10 +103,9 @@ def send_torrent_email(email_configurations, email_msg, subscription_data=None,
         email_data["subject"] = email_data["subject"].replace("$subscription_title", subscription_data["name"])
 
     if email_data["message"].find("$torrentlist") != -1 and torrent_name_list:
-        torrentlist_plain = " * %s\n" % "\n * ".join(f for f in torrent_name_list)
+        torrentlist_plain = " * {}\n".format("\n * ".join(f for f in torrent_name_list))
         msg_plain = email_data["message"].replace("$torrentlist", torrentlist_plain)
-        torrentlist_html = "<ul><li>%s </li></ul>" % \
-            "</li> \n <li> ".join(f for f in torrent_name_list)
+        torrentlist_html = "<ul><li>{} </li></ul>".format("</li> \n <li> ".join(f for f in torrent_name_list))
         msg_html = email_data["message"].replace('\n', '<br/>')
         msg_html = re.sub(r'\$torrentlist(<br/>){1}?', torrentlist_html, msg_html)
         email_data["message"] = msg_plain

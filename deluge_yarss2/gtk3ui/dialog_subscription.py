@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -27,7 +26,7 @@ from .CellRendererPango import CellRendererPango, CustomAttribute
 from .common import Gdk, GdkPixbuf, Gtk, get_selected_combobox_key, set_tooltip_markup
 
 
-class DialogSubscriptionGUI(object):
+class DialogSubscriptionGUI:
 
     def __init__(self, editing=False, new_subscription=False):
         self.editing = editing
@@ -304,18 +303,17 @@ class DialogSubscriptionGUI(object):
         magnet = self.rssfeeds_dict[torrent_key]['magnet']
         torrent = self.rssfeeds_dict[torrent_key]['torrent']
 
-        tooltip_text = ("<b>Title:</b> %s\n<b>Published:</b> %s" %
-                        (html.escape(title), published))
+        tooltip_text = (f"<b>Title:</b> {html.escape(title)}\n<b>Published:</b> {published}")
 
         def add_html_tag(text, tag, add=True):
             if add is False:
                 return text
-            return "<{tag}>{text}</{tag}>".format(text=text, tag=tag)
+            return f"<{tag}>{text}</{tag}>"
 
         if torrent is not None:
-            tooltip_text += "\n<b>Torrent: </b> %s" % (add_html_tag(html.escape(torrent), 'u', add=not prefer_magnet))
+            tooltip_text += f"\n<b>Torrent: </b> {add_html_tag(html.escape(torrent), 'u', add=not prefer_magnet)}"
         if magnet is not None:
-            tooltip_text += "\n<b>Magnet: </b> %s" % (add_html_tag(html.escape(magnet), 'u', add=prefer_magnet))
+            tooltip_text += f"\n<b>Magnet: </b> {add_html_tag(html.escape(magnet), 'u', add=prefer_magnet)}"
 
         tooltip.set_markup(tooltip_text)
         widget.set_tooltip_cell(tooltip, path, None, None)
@@ -682,7 +680,7 @@ class DialogSubscriptionGUI(object):
         for key in sorted(rssfeeds):
             self.rssfeeds_store.append([rssfeeds[key]["key"],
                                         rssfeeds[key]["name"],
-                                        "(%s)" % rssfeeds[key]["site"]])
+                                        "({})".format(rssfeeds[key]["site"])])
             if key == rssfeed_key:
                 active_index = count
             count += 1
@@ -804,12 +802,11 @@ class DialogSubscription(DialogSubscriptionGUI):
             if message:
                 label_status.set_text(str(message))
             label_count = self.get_object("label_torrent_count")
-            label_count.set_text("Matching: %d/%d" %
-                                 (len(matchings.keys()), len(self.rssfeeds_dict.keys())))
+            label_count.set_text(f"Matching: {len(matchings.keys())}/{len(self.rssfeeds_dict.keys())}")
         except Exception:
             import traceback
             exc_str = traceback.format_exc()
-            self.log.warn("Error when matching:" + exc_str, gtkui=True)
+            self.log.warning("Error when matching:" + exc_str, gtkui=True)
 
     def get_and_update_rssfeed_results(self, rssfeed_key):
         """
@@ -851,7 +848,7 @@ class DialogSubscription(DialogSubscriptionGUI):
             exception = rssfeeds_parsed["bozo_exception"]
             label_text = str(exception)
         else:
-            message_text = "TTL value: %s" % (("%s min" % rssfeeds_parsed["ttl"])
+            message_text = "TTL value: %s" % (("{} min".format(rssfeeds_parsed["ttl"]))
                                               if rssfeeds_parsed.get("ttl", None) is not None
                                               else "Not available")
             # This can sometimes be None for some effing reason
@@ -861,7 +858,7 @@ class DialogSubscription(DialogSubscriptionGUI):
             # label_status is sometimes None, for som effin reason
             label_status.set_text(label_text)
         except AttributeError:
-            self.log.warn("label_status is None", gtkui=False)
+            self.log.warning("label_status is None", gtkui=False)
             pass
 
         # Failed to retrive items. Show content as text

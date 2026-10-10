@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -19,7 +18,7 @@ from deluge_yarss2.util.common import GeneralSubsConf, TorrentDownload
 from deluge_yarss2.util.yarss_email import send_torrent_email
 
 
-class TorrentHandler(object):
+class TorrentHandler:
 
     def __init__(self, logger):
         self.log = logger
@@ -38,7 +37,7 @@ class TorrentHandler(object):
         try:
             download.filedump = http.fetch_url(torrent_url, headers=request_headers)
         except Exception as e:
-            error_msg = "Failed to download torrent url: '%s'. Exception: %s" % (torrent_url, str(e))
+            error_msg = f"Failed to download torrent url: '{torrent_url}'. Exception: {str(e)}"
             self.log.error(error_msg)
             download.set_error(error_msg)
             return download
@@ -53,7 +52,7 @@ class TorrentHandler(object):
             # Get the info to see if any exceptions are raised
             lt.torrent_info(lt.bdecode(download.filedump))
         except Exception as e:
-            error_msg = "Unable to decode torrent file! (%s) URL: '%s'" % (str(e), torrent_url)
+            error_msg = f"Unable to decode torrent file! ({str(e)}) URL: '{torrent_url}'"
             download.set_error(error_msg)
             self.log.error(error_msg)
         return download
@@ -69,13 +68,15 @@ class TorrentHandler(object):
             headers["User-Agent"] = user_agent
 
         if url.startswith("magnet:"):
-            self.log.info("Fetching magnet: '%s'" % url, gtkui=False)
+            self.log.info(f"Fetching magnet: '{url}'", gtkui=False)
             download = TorrentDownload({"is_magnet": True, "url": url})
         else:
             # Fix unicode URLs
             url = http.url_fix(url)
-            self.log.info("Downloading torrent: '%s' using cookies: '%s', headers: '%s'" %
-                          (url, str(site_cookies_dict), str(headers)), gtkui=True)
+            self.log.info(
+                f"Downloading torrent: '{url}' using cookies: '{site_cookies_dict}', headers: '{headers}'",
+                gtkui=True,
+            )
             download = self.download_torrent_file(url, cookies=site_cookies_dict, headers=headers)
             # Error occured
             if not download.success:
@@ -84,7 +85,7 @@ class TorrentHandler(object):
             try:
                 torrentinfo.TorrentInfo(filedump=download.filedump)
             except Exception as e:
-                download.set_error("Unable to open torrent file: %s. Error: %s" % (url, str(e)))
+                download.set_error(f"Unable to open torrent file: {url}. Error: {str(e)}")
                 self.log.warning(download.error_msg)
         return download
 
@@ -127,21 +128,21 @@ class TorrentHandler(object):
                 options["max_upload_slots"] = subscription_data["max_upload_slots"]
 
         if download.is_magnet:
-            self.log.info("Adding magnet: '%s'" % torrent_url)
+            self.log.info(f"Adding magnet: '{torrent_url}'")
             download.torrent_id = component.get("TorrentManager").add(options=options,
                                                                       magnet=download.url)
         else:
             # Error occured
             if not download.success:
-                self.log.warning("Failed to add '%s'." % (torrent_url))
+                self.log.warning(f"Failed to add '{torrent_url}'.")
                 return download
 
-            self.log.info("Adding torrent: '%s'." % (torrent_url))
+            self.log.info(f"Adding torrent: '{torrent_url}'.")
             # Get the torrent data from the torrent file
             try:
                 torrentinfo.TorrentInfo(filedump=download.filedump)
             except Exception as e:
-                download.set_error("Unable to open torrent file: %s. Error: %s" % (torrent_url, str(e)))
+                download.set_error(f"Unable to open torrent file: {torrent_url}. Error: {str(e)}")
                 self.log.warning(download.error_msg)
 
             try:
@@ -150,7 +151,7 @@ class TorrentHandler(object):
                                                                           options=options)
             except AddTorrentError as err:
                 download.success = False
-                download.set_error("Failed to add torrent to Deluge: %s" % (str(err)))
+                download.set_error(f"Failed to add torrent to Deluge: {str(err)}")
                 self.log.warning(download.error_msg)
             else:
                 if ("Label" in component.get("Core").get_enabled_plugins()
@@ -165,10 +166,9 @@ class TorrentHandler(object):
             torrent_download = self.add_torrent(torrent_match)
 
             if not torrent_download.success:
-                self.log.warning("Failed to add torrent '%s' from url '%s'" %
-                                 (torrent_match["title"], torrent_match["link"]))
+                self.log.warning(f"Failed to add torrent '{torrent_match['title']}' from url '{torrent_match['link']}'")
             else:
-                self.log.info("Succesfully added torrent '%s'." % torrent_match["title"])
+                self.log.info("Succesfully added torrent '{}'.".format(torrent_match["title"]))
                 # Update subscription with date
                 torrent_time = torrent_match["updated_datetime"]
 

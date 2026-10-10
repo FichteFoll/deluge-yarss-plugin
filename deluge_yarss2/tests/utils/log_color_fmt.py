@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 import copy
 import logging
@@ -38,7 +37,7 @@ def get_new_key_fmt(m_dict):
 
     mid_width = int(m_dict['width'])
     mid_width += 9  # Increase width with the number is invisible characters added for coloring
-    new_fmt = "%({}){}s".format(m_dict['key'], "%s%s" % (m_dict['align'], mid_width))
+    new_fmt = "%({}){}s".format(m_dict['key'], "{}{}".format(m_dict['align'], mid_width))
     return new_fmt
 
 
@@ -80,6 +79,6 @@ class ColorFormatter(logging.Formatter):
         color_code = WHITE
         if self.colors:
             color_code = LEVEL_TO_COLORS_MAPPING.get(levelname, WHITE)
-        colored_levelname = ('{0}{1}m{2}{3}').format(PREFIX, color_code, levelname, SUFFIX)
+        colored_levelname = (f'{PREFIX}{color_code}m{levelname}{SUFFIX}')
         colored_record.levelname = colored_levelname
         return logging.Formatter.format(self, colored_record)

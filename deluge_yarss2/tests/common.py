@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -86,7 +85,7 @@ def json_load(filename, dict_int_keys=False):
         return dct
 
     filename = deluge_yarss2.util.common.get_resource(filename, path="tests")
-    f = open(filename, "r")
+    f = open(filename)
     d = json.load(f, object_hook=datetime_parse)
     f.close()
 

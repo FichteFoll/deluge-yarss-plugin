@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -14,7 +13,7 @@ from deluge_yarss2.util.common import get_resource
 from .common import Gtk
 
 
-class DialogCookie():
+class DialogCookie:
 
     def __init__(self, gtkui, cookie_data):
         self.gtkUI = gtkui

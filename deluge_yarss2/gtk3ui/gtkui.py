@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -300,7 +299,7 @@ class GtkUI(Gtk3PluginBase):
             active_subs = "0"
             if key in active_subscriptions:
                 tmp = active_subscriptions[key]
-                active_subs = "%s (%s)" % (tmp[0], tmp[1])
+                active_subs = f"{tmp[0]} ({tmp[1]})"
             rssfeeds_store.append([self.rssfeeds[key]["key"],
                                    self.rssfeeds[key]["active"],
                                    self.rssfeeds[key]["name"],
@@ -353,7 +352,7 @@ class GtkUI(Gtk3PluginBase):
             return defer.succeed(None)
 
         def on_labels(labels):
-            self.log.debug("Got Labels: %s" % str(labels))
+            self.log.debug(f"Got Labels: {str(labels)}")
             labels = list(labels)
             labels.insert(0, "")
             return defer.succeed(labels)
@@ -600,9 +599,9 @@ class GtkUI(Gtk3PluginBase):
 
         def test_email_callback(return_value):
             if return_value:
-                self.log.warn("Test email successfully sent!")
+                self.log.warning("Test email successfully sent!")
             else:
-                self.log.warn("Failed to send test email!")
+                self.log.warning("Failed to send test email!")
         # Send email from daemon
         client.yarss2.send_test_email(key).addCallback(test_email_callback)
 
@@ -865,13 +864,13 @@ class GtkUI(Gtk3PluginBase):
                 subscriptions_with_notification.append(self.subscriptions[key]["name"])
         # Any subscriptions that use this message?
         if subscriptions_with_notification:
-            subscription_titles = ''.join(["* %s\n" % title for title in subscriptions_with_notification])
+            subscription_titles = ''.join([f"* {title}\n" for title in subscriptions_with_notification])
             md = Gtk.MessageDialog(component.get("Preferences").pref_dialog,
                                    Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.INFO,
                                    Gtk.ButtonsType.CLOSE)
-            md.set_markup("This Email Message is used by the following subscriptions:\n<b>%s</b>"
+            md.set_markup(f"This Email Message is used by the following subscriptions:\n<b>{subscription_titles}</b>"
                           "You must first remove the notication from the subscriptions "
-                          "before deleting the email message!" % subscription_titles)
+                          "before deleting the email message!")
             md.run()
             md.destroy()
             return

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -10,26 +9,11 @@
 import re
 import ssl
 import urllib.error
+import urllib.parse as urlparse
 import urllib.request
-
-PY2 = False
-PY3 = False
-
-try:
-    import urllib.parse as urlparse
-    from html.parser import HTMLParser
-    from urllib.parse import quote as urllib_quote
-    from urllib.parse import quote_plus as urllib_quote_plus
-    unicode = str
-    PY3 = True
-except ImportError:
-    # python 2
-    from urllib import quote as urllib_quote
-    from urllib import quote_plus as urllib_quote_plus
-
-    import urlparse
-    from HTMLParser import HTMLParser
-    PY2 = True
+from html.parser import HTMLParser
+from urllib.parse import quote as urllib_quote
+from urllib.parse import quote_plus as urllib_quote_plus
 
 
 def download_file(url_file_stream_or_string, site_cookies_dict=None, etag=None, modified=None, user_agent=None,
@@ -62,7 +46,7 @@ def check_fetch_url_scheme(url):
     # urllib also opens file, ftp and data URLs, which must not be fetched from feed content.
     scheme = urlparse.urlsplit(url).scheme.lower()
     if scheme not in FETCH_URL_SCHEMES:
-        raise ValueError("Unsupported URL scheme '%s' in URL: '%s'" % (scheme, url))
+        raise ValueError(f"Unsupported URL scheme '{scheme}' in URL: '{url}'")
 
 
 class HTTPOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -126,7 +110,7 @@ def encode_cookie_values(cookies_dict):
     and returns the cookie as used in a HTTP Header"""
     cookie_value = ""
     for key in sorted(cookies_dict):
-        cookie_value += ("; %s=%s" % (key, cookies_dict[key]))
+        cookie_value += (f"; {key}={cookies_dict[key]}")
     return cookie_value[2:]
 
 
@@ -144,9 +128,6 @@ def url_fix(s, charset='utf-8'):
     :param charset: The target charset for the URL if the url was
                     given as unicode string.
     """
-    if PY2 and isinstance(s, unicode):
-        s = s.encode(charset, 'ignore')
-
     scheme, netloc, path, qs, anchor = urlparse.urlsplit(s)
     path = urllib_quote(path, safe="%/:=&?~#+!$,;'@()*[]")
     qs = urllib_quote_plus(qs, ':&=')
@@ -178,7 +159,7 @@ class HTMLStripper(HTMLParser):
     SUPPRESSED_TAGS = {"script", "style"}
 
     def __init__(self):
-        super(HTMLStripper, self).__init__()
+        super().__init__()
         self.reset()
         self.fed = []
         self.in_head = False

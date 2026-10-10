@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -21,7 +20,7 @@ from deluge_yarss2.torrent_handling import TorrentHandler
 from deluge_yarss2.yarss_config import YARSSConfigChangedEvent
 
 
-class RSSFeedScheduler(object):
+class RSSFeedScheduler:
     """Handles scheduling the RSS Feed fetches."""
 
     def __init__(self, config, logger):
@@ -40,8 +39,7 @@ class RSSFeedScheduler(object):
         for key in config["rssfeeds"]:
             rssfeed = config["rssfeeds"][key]
             self.set_timer(rssfeed["key"], rssfeed['update_interval'], rssfeed["update_on_startup"])
-            self.log.info("Scheduled RSS Feed '%s' with interval %s" %
-                          (rssfeed["name"], rssfeed["update_interval"]))
+            self.log.info(f"Scheduled RSS Feed '{rssfeed['name']}' with interval {rssfeed['update_interval']}")
 
     def disable_timers(self):
         for key in list(self.rssfeed_timers.keys()):
@@ -53,7 +51,7 @@ class RSSFeedScheduler(object):
         try:
             interval = int(interval)
         except ValueError:
-            self.log.error("Failed to convert interval '%s' to int!" % str(interval))
+            self.log.error(f"Failed to convert interval '{str(interval)}' to int!")
             return False
         # Already exists, so reschedule
         if key in self.rssfeed_timers:
@@ -74,7 +72,7 @@ class RSSFeedScheduler(object):
     def delete_timer(self, key):
         """Delete timer with the specified key."""
         if key not in self.rssfeed_timers:
-            self.log.warning("Cannot delete timer. No timer with key %s" % key)
+            self.log.warning(f"Cannot delete timer. No timer with key {key}")
             return False
         self.rssfeed_timers[key]["timer"].stop()
         del self.rssfeed_timers[key]
@@ -91,15 +89,15 @@ class RSSFeedScheduler(object):
         except:  # noqa: E722 do not use bare 'except'
             traceback.print_exc()
             exc_str = traceback.format_exc()
-            self.log.warning("An exception was thrown by the RSS update handler. Please report this bug!\n%s" % exc_str)
+            self.log.warning(f"An exception was thrown by the RSS update handler. Please report this bug!\n{exc_str}")
 
     def rssfeed_update_handler(self, rssfeed_key=None, subscription_key=None):
         """Goes through all the feeds and runs the active ones.
         Multiple subscriptions on one RSS Feed will download the RSS feed page only once
         """
         if subscription_key:
-            self.log.info("Manually running Subscription '%s'" %
-                          (self.yarss_config.get_config()["subscriptions"][subscription_key]["name"]))
+            subscription_name = self.yarss_config.get_config()["subscriptions"][subscription_key]["name"]
+            self.log.info(f"Manually running Subscription '{subscription_name}'")
         elif rssfeed_key:
             if self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["active"] is False:
                 return
@@ -116,8 +114,10 @@ class RSSFeedScheduler(object):
             # Subscription is run directly. Get RSS Feed key
             if not rssfeed_key:
                 rssfeed_key = self.yarss_config.get_config()["subscriptions"][subscription_key]["rssfeed_key"]
-            self.log.info("Rescheduling RSS Feed '%s' with interval '%s' according to TTL." %
-                          (self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["name"], fetch_result["ttl"]))
+            rssfeed_name = self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["name"]
+            self.log.info(
+                f"Rescheduling RSS Feed '{rssfeed_name}' with interval '{fetch_result['ttl']}' according to TTL."
+            )
             rssfeed = self.yarss_config.get_config()["rssfeeds"][rssfeed_key]
             # Set new interval in config
             rssfeed["update_interval"] = fetch_result["ttl"]
@@ -153,7 +153,7 @@ class RSSFeedScheduler(object):
         return d
 
 
-class RSSFeedRunQueue(object):
+class RSSFeedRunQueue:
     """Runs functions in separate threads. If a job is already running,
     jobs pushed are queued until the running job has finished"""
     def __init__(self, concurrent_max=1):

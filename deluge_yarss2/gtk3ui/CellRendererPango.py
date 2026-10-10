@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019 bendikro bro.devel+yarss2@gmail.com
 #
@@ -10,10 +9,10 @@
 from .common import GObject, Gtk, Pango, PangoCairo
 
 
-class CustomAttribute(GObject.GObject, object):
+class CustomAttribute(GObject.GObject):
 
     def __init__(self, attributes_dict=None):
-        super(CustomAttribute, self).__init__()
+        super().__init__()
         self.attributes_dict = attributes_dict
 
     def __str__(self):
@@ -50,12 +49,12 @@ class CellRendererPango(Gtk.CellRendererText):
 
     def do_get_property(self, property):
         if property.name not in self.property_names:
-            raise TypeError('No property named %s' % (property.name,))
+            raise TypeError(f'No property named {property.name}')
         return self.__dict__[property.name]
 
     def do_set_property(self, property, value):
         if property.name not in self.property_names:
-            raise TypeError('No property named %s' % (property.name,))
+            raise TypeError(f'No property named {property.name}')
         self.__dict__[property.name] = value
 
     def get_text(self):
@@ -83,14 +82,14 @@ class CellRendererPango(Gtk.CellRendererText):
         markup = self.get_text()
 
         def rgb_to_hex(rgb):
-            return '#%02x%02x%02x' % rgb
+            return '#{:02x}{:02x}{:02x}'.format(*rgb)
 
         if custom_attr and custom_attr.attributes_dict:
             attributes_dict = custom_attr.attributes_dict
 
             def markup_text(txt, start, end, color):
                 markuped = txt[0:start]
-                markuped += '<span background="%s"><b>%s</b></span>' % (color, txt[start:end])
+                markuped += f'<span background="{color}"><b>{txt[start:end]}</b></span>'
                 markuped += txt[end:]
                 return markuped
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2015 bendikro bro.devel+yarss2@gmail.com
 #
@@ -26,14 +25,14 @@ class Core(CorePluginBase):
     def __init__(self, name):
         """Used for tests only"""
         if name != "test":
-            super(Core, self).__init__(name)
+            super().__init__(name)
         else:
             # To avoid warnings when running tests
             self._component_name = name
 
     def __del__(self):
         if self._component_name != "test":
-            super(Core, self).__del__()
+            super().__del__()
 
     def enable(self, config=None):
         self.log = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ class Core(CorePluginBase):
             self.yarss_config = config
         self.rssfeed_scheduler = RSSFeedScheduler(self.yarss_config, self.log)
         self.rssfeed_scheduler.enable_timers()
-        self.log.info("Enabled YaRSS2 %s" % deluge_yarss2.util.common.get_version())
+        self.log.info(f"Enabled YaRSS2 {deluge_yarss2.util.common.get_version()}")
 
     def disable(self):
         self.yarss_config.save()
@@ -85,10 +84,10 @@ class Core(CorePluginBase):
         """
         if delete:
             if subscription_data is not None:
-                self.log.warn("save_subscription called with delete=True, but rssfeed_data is not None!")
+                self.log.warning("save_subscription called with delete=True, but rssfeed_data is not None!")
             else:
-                self.log.info("Deleting Subscription '%s'" %
-                              self.yarss_config.get_config()["subscriptions"][dict_key]["name"])
+                subscription_name = self.yarss_config.get_config()["subscriptions"][dict_key]["name"]
+                self.log.info(f"Deleting Subscription '{subscription_name}'")
         try:
             return self.yarss_config.generic_save_config("subscriptions", dict_key=dict_key,
                                                          data_dict=subscription_data, delete=delete)
@@ -104,10 +103,10 @@ class Core(CorePluginBase):
         try:
             if delete:
                 if rssfeed_data is not None:
-                    self.log.warn("save_rssfeed called with delete=True, but rssfeed_data is not None!")
+                    self.log.warning("save_rssfeed called with delete=True, but rssfeed_data is not None!")
                 else:
-                    self.log.info("Stopping and deleting RSS Feed '%s'" %
-                                  self.yarss_config.get_config()["rssfeeds"][dict_key]["name"])
+                    rssfeed_name = self.yarss_config.get_config()["rssfeeds"][dict_key]["name"]
+                    self.log.info(f"Stopping and deleting RSS Feed '{rssfeed_name}'")
 
             config = self.yarss_config.generic_save_config("rssfeeds", dict_key=dict_key,
                                                            data_dict=rssfeed_data, delete=delete)
@@ -117,8 +116,8 @@ class Core(CorePluginBase):
             elif config:
                 if self.rssfeed_scheduler.set_timer(rssfeed_data["key"], rssfeed_data["update_interval"],
                                                     rssfeed_data["update_on_startup"]):
-                    self.log.info("Scheduled RSS Feed '%s' with interval %s" %
-                                  (rssfeed_data["name"], rssfeed_data["update_interval"]))
+                    self.log.info(f"Scheduled RSS Feed '{rssfeed_data['name']}' with interval "
+                                  f"{rssfeed_data['update_interval']}")
             return config
         except ValueError as v:
             self.log.error("Failed to save rssfeed:" + str(v))
