@@ -1,5 +1,17 @@
 ## Changelog ##
 
+Unreleased
+
+* Moved the project to GitHub
+* Raised the minimum supported Python version to 3.11
+* Replaced setup.py, tox, flake8 and isort with pyproject.toml, uv, ruff and GitHub Actions
+* Renamed the package from yarss2 to deluge_yarss2
+* Fixed loading the plugin without pkg_resources, which setuptools 82 removed and the importlib-based plugin loader does not support
+* Fixed the Web UI plugin entry point
+* Fixed compatibility with Python 3.12 and 3.13
+* Replaced requests and BeautifulSoup with the Python standard library
+* Refreshed the vendored third-party libraries
+
 v2.1.5 - 2021-03-21
 
 * Fix #63: Fix error on python 3.9 due to bug in feedparser
