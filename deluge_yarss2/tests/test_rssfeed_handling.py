@@ -346,6 +346,7 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         rssfeed_data = {"name": "Test", "url": file_url}
         parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
         self.assertTrue("items" not in parsed_feed)
+        self.assertTrue("too many requests" in parsed_feed["raw_result"]["raw_result"])
 
     # def test_test_feedparser_parse(self):
     #     #file_url = deluge_yarss2.util.common.get_resource(test_common.testdata_rssfeed_filename, path="tests/")

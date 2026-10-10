@@ -154,23 +154,15 @@ def url_fix(s, charset='utf-8'):
 
 
 def clean_html_body(html_page):
-    from bs4 import BeautifulSoup, Comment
-    soup = BeautifulSoup(html_page, features="html5lib")
-    comments = soup.findAll(text=lambda text: isinstance(html_page, Comment))
-    [comment.extract() for comment in comments]
+    if isinstance(html_page, bytes):
+        html_page = html_page.decode("utf-8", errors="replace")
 
-    # Removing head
-    soup.html.head.extract()
-    # Removing scripts
-    [s.extract() for s in soup('script')]
-    [s.extract() for s in soup('style')]
-
-    for tag in soup():
-        del tag["style"]
-
-    s = HTMLStripper()
-    s.feed(str(soup))
-    safe_html = s.get_data()
+    stripper = HTMLStripper()
+    stripper.feed(html_page)
+    # Flush data HTMLParser held back because it could still be part of a longer token
+    # (e.g. a trailing "&" that could start an entity reference).
+    stripper.close()
+    safe_html = stripper.get_data()
 
     # Allow max two consecutive \n
     safe_html = re.sub(r'\n(\n)+', r'\n\n', safe_html)
@@ -178,14 +170,40 @@ def clean_html_body(html_page):
 
 
 class HTMLStripper(HTMLParser):
+    # Tags that may appear in <head> without ending head mode.
+    # HTML allows omitting </head>, so head mode also ends at <body> or at any
+    # start tag that is not one of these, rather than only at a matching </head>.
+    HEAD_ALLOWED_TAGS = {"title", "meta", "link", "base", "script", "style", "noscript", "template"}
+    # Character data inside these elements is never shown to the user, in or out of <head>.
+    SUPPRESSED_TAGS = {"script", "style"}
 
     def __init__(self):
         super(HTMLStripper, self).__init__()
         self.reset()
         self.fed = []
+        self.in_head = False
+        self.suppressed_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "head":
+            self.in_head = True
+        elif tag == "body":
+            self.in_head = False
+        elif self.in_head and tag not in self.HEAD_ALLOWED_TAGS:
+            self.in_head = False
+
+        if tag in self.SUPPRESSED_TAGS:
+            self.suppressed_depth += 1
+
+    def handle_endtag(self, tag):
+        if tag == "head":
+            self.in_head = False
+        if tag in self.SUPPRESSED_TAGS and self.suppressed_depth > 0:
+            self.suppressed_depth -= 1
 
     def handle_data(self, d):
-        self.fed.append(d)
+        if not self.in_head and self.suppressed_depth == 0:
+            self.fed.append(d)
 
     def get_data(self):
         prev_empty = False

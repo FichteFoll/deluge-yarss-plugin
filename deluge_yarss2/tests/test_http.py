@@ -82,15 +82,20 @@ class HTTPTestCase(unittest.TestCase):
             break
 
     def test_clean_html_body(self):
-        from deluge_yarss2 import load_libs
-        load_libs()
         web_page = """<html>
   <head>
    <title>
     Page title
    </title>
+   <style>
+    p { color: red; }
+   </style>
   </head>
   <body>
+   <!-- a comment -->
+   <script>
+    var x = 1;
+   </script>
    <p id="firstpara" align="center">
     This is paragraph
     <b>
@@ -105,7 +110,38 @@ class HTTPTestCase(unittest.TestCase):
    </p>
   </body>
  </html>"""
-        http.clean_html_body(web_page)
+        result = http.clean_html_body(web_page)
+        self.assertTrue("This is paragraph" in result)
+        self.assertTrue("one" in result)
+        self.assertTrue("two" in result)
+        self.assertFalse("Page title" in result)
+        self.assertFalse("color: red" in result)
+        self.assertFalse("var x = 1" in result)
+        self.assertFalse("a comment" in result)
+        self.assertFalse("\n\n\n" in result)
+
+    def test_clean_html_body_unclosed_head_with_body_tag(self):
+        # html5lib ends head mode at the first body content, even without a `</head>`.
+        web_page = '<html><head><title>Error</title><body><h1>Forbidden</h1>You are banned</body></html>'
+        result = http.clean_html_body(web_page)
+        self.assertTrue("Forbidden" in result)
+        self.assertTrue("You are banned" in result)
+        self.assertFalse("Error" in result)
+
+    def test_clean_html_body_unclosed_head_without_body_tag(self):
+        web_page = '<html><head><title>T</title>\n<p>Body text here</p></html>'
+        result = http.clean_html_body(web_page)
+        self.assertTrue("Body text here" in result)
+
+    def test_clean_html_body_duplicate_head_tag(self):
+        web_page = '<head><head><title>T</title></head><body>Body text</body>'
+        result = http.clean_html_body(web_page)
+        self.assertTrue("Body text" in result)
+
+    def test_clean_html_body_trailing_incomplete_data(self):
+        # HTMLParser holds back incomplete trailing data until close().
+        result = http.clean_html_body("Rate limited &")
+        self.assertTrue("Rate limited &" in result)
 
     def test_atoma_parsing(self):
         import atoma

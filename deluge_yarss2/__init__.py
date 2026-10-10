@@ -32,10 +32,7 @@ VENDORED_LIB_DIRS = [
     "",
     "dateutil",
     "defusedxml",
-    "beautifulsoup/py3k",
     "atoma",
-    "html5lib",
-    "webencodings",
 ]
 
 
