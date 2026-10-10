@@ -144,7 +144,7 @@ class HTTPTestCase(unittest.TestCase):
         self.assertTrue("Rate limited &" in result)
 
     def test_atoma_parsing(self):
-        import atoma
+        from deluge_yarss2 import atoma
         atoma.rss.supported_rss_versions = []
         filename = "ettv-rss-1.xml"
         file_path = common.get_resource(filename, path="tests/data/feeds/")

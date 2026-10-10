@@ -16,12 +16,10 @@ import deluge.configmanager
 import deluge.core.preferencesmanager
 
 import deluge_yarss2.util.common
-from deluge_yarss2 import load_libs, yarss_config
+from deluge_yarss2 import yarss_config
 from deluge_yarss2.util import logging
 
 from .utils.log_utils import plugin_tests_logger_name
-
-load_libs()
 
 log = logging.getLogger(plugin_tests_logger_name)
 

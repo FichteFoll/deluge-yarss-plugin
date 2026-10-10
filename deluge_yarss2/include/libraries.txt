@@ -1,6 +1,0 @@
-# External libraries included as subrepos
-
-# Parsing RSS feeds:
-atoma
-- dateutil
-- defusedxml

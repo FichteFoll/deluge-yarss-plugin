@@ -48,8 +48,6 @@ dev = [
     "pytest",
     "pytest-twisted",
     "ruff",
-    # Needed by vendored libs until they are replaced, see C9 of the migration.
-    "six",
 ]
 gui = ["pygobject"]
 vendor = ["vendoring==1.4.0", "pip"]
@@ -65,17 +63,16 @@ include = ["deluge_yarss2*"]
 exclude = ["deluge_yarss2.tests*"]
 
 [tool.setuptools.package-data]
-# The vendored subrepos are not proper packages and must be shipped as data.
-deluge_yarss2 = ["data/*", "include/**/*"]
+# The vendored tree carries license files and dateutil's zoneinfo tarball besides the modules.
+deluge_yarss2 = ["data/*", "atoma/LICENSE", "_vendor/**/*"]
 
 [tool.setuptools.exclude-package-data]
 # Keep bytecode from the working tree out of the wheel.
-# Keyed for all packages, since manifest files belong to the innermost package, e.g. `deluge_yarss2.include`.
+# Keyed for all packages, since manifest files belong to the innermost package, e.g. `deluge_yarss2._vendor`.
 "*" = ["*.pyc"]
 
 [tool.pytest.ini_options]
 testpaths = ["deluge_yarss2/tests"]
-norecursedirs = ["deluge_yarss2/include"]
 markers = [
     "gui: Test GUI",
     "label: Test GUI with label plugin",
@@ -84,7 +81,12 @@ addopts = ["--reactor=default", "-m", "not gui and not label"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["deluge_yarss2/include", "deluge_yarss2/util/feedparsing"]
+extend-exclude = [
+    "deluge_yarss2/_vendor",
+    "deluge_yarss2/atoma",
+    "deluge_yarss2/tests/atoma",
+    "deluge_yarss2/util/feedparsing",
+]
 builtins = ["_", "__request__"]
 
 [tool.ruff.lint]
@@ -107,3 +109,15 @@ section-order = [
 
 [tool.ruff.lint.isort.sections]
 deluge = ["deluge"]
+
+[tool.vendoring]
+destination = "deluge_yarss2/_vendor/"
+requirements = "deluge_yarss2/_vendor/vendor.txt"
+namespace = "deluge_yarss2._vendor"
+protected-files = ["__init__.py", "vendor.txt"]
+
+[tool.vendoring.transformations]
+drop = ["*.dist-info", "bin/"]
+
+[tool.vendoring.license.directories]
+python_dateutil = "dateutil"

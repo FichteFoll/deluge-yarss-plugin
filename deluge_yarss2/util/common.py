@@ -86,7 +86,7 @@ def datetime_ensure_timezone(dt):
 
 
 def datetime_add_timezone(dt, tzinfo=None):
-    from dateutil.tz import tzutc
+    from deluge_yarss2._vendor.dateutil.tz import tzutc
     if tzinfo is None:
         tzinfo = tzutc()
     return dt.replace(tzinfo=tzinfo)
@@ -101,7 +101,7 @@ def isodate_to_datetime(date_in_isoformat):
         datetime.datetime: The datetime object converted from date_in_isoformat
 
     """
-    from dateutil import parser as dateutil_parser
+    from deluge_yarss2._vendor.dateutil import parser as dateutil_parser
     try:
         dt = dateutil_parser.parse(date_in_isoformat)
         return datetime_add_timezone(dt)
