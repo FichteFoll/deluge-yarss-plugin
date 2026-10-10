@@ -14,8 +14,13 @@ from deluge.ui.client import client
 from yarss2.gtk3ui.path_chooser import PathChooser
 from yarss2.rssfeed_handling import RSSFeedHandler
 from yarss2.util import http
-from yarss2.util.common import (GeneralSubsConf, TorrentDownload, get_current_date_in_isoformat, get_resource,
-                                get_value_in_selected_row)
+from yarss2.util.common import (
+    GeneralSubsConf,
+    TorrentDownload,
+    get_current_date_in_isoformat,
+    get_resource,
+    get_value_in_selected_row,
+)
 from yarss2.yarss_config import get_user_agent
 
 from .CellRendererPango import CellRendererPango, CustomAttribute
@@ -653,9 +658,9 @@ class DialogSubscriptionGUI(object):
                                              on_added, on_completed])
 
     def set_path_chooses_data(self, config):
-        if not config.get("move_completed_paths_list", None) is None:
+        if config.get("move_completed_paths_list", None) is not None:
             self.move_completed_path_chooser.add_values(config["move_completed_paths_list"])
-        if not config.get("download_location_paths_list", None) is None:
+        if config.get("download_location_paths_list", None) is not None:
             self.download_location_path_chooser.add_values(config["download_location_paths_list"])
 
         if self.new_subscription:

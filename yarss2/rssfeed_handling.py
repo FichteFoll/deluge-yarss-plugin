@@ -284,7 +284,7 @@ class RSSFeedHandler(object):
                 del rssfeed_parsed[key]
 
         if "custom_text_lines" in options and options["custom_text_lines"]:
-            if not type(options["custom_text_lines"]) is list:
+            if type(options["custom_text_lines"]) is not list:
                 self.log.warning("type of custom_text_lines' must be list")
             else:
                 for line in options["custom_text_lines"]:

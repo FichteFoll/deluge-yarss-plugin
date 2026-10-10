@@ -14,16 +14,17 @@ PY3 = False
 
 try:
     import urllib.parse as urlparse
+    from html.parser import HTMLParser
     from urllib.parse import quote as urllib_quote
     from urllib.parse import quote_plus as urllib_quote_plus
-    from html.parser import HTMLParser
     unicode = str
     PY3 = True
 except ImportError:
     # python 2
-    import urlparse
     from urllib import quote as urllib_quote
     from urllib import quote_plus as urllib_quote_plus
+
+    import urlparse
     from HTMLParser import HTMLParser
     PY2 = True
 

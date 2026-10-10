@@ -93,7 +93,7 @@ class DialogRSSFeed(object):
     def on_button_save_clicked(self, event=None, a=None, col=None):
         rssfeed_data = self.get_data_fields()
         allowed_types = ('http', 'https', 'ftp', 'file', 'feed')
-        if not urlparse.urlparse(rssfeed_data["url"])[0] in allowed_types:
+        if urlparse.urlparse(rssfeed_data["url"])[0] not in allowed_types:
             md = Gtk.MessageDialog(None, Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.INFO,
                                    Gtk.ButtonsType.CLOSE, "The RSS Feed URL must begin with one of: %s" %
                                    (", ".join(t for t in allowed_types)))

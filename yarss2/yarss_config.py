@@ -124,7 +124,7 @@ class YARSSConfig(object):
 
         config_name must be either of the dictionaries in the main config (See DEFAULT_PREFS):
         """
-        if data_dict is not None and type(data_dict) != dict:
+        if data_dict is not None and type(data_dict) is not dict:
             raise ValueError("generic_save_config: data_dict must be a dictionary: '%s'" % str(data_dict))
 
         if config_name not in default_prefs():
