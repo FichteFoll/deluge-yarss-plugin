@@ -28,13 +28,13 @@ Issues = "https://github.com/FichteFoll/deluge-yarss-plugin/issues"
 Changelog = "https://github.com/FichteFoll/deluge-yarss-plugin/blob/master/CHANGELOG.md"
 
 [project.entry-points."deluge.plugin.core"]
-YaRSS2 = "yarss2:CorePlugin"
+YaRSS2 = "deluge_yarss2:CorePlugin"
 
 [project.entry-points."deluge.plugin.gtk3ui"]
-YaRSS2 = "yarss2:Gtk3UIPlugin"
+YaRSS2 = "deluge_yarss2:Gtk3UIPlugin"
 
 [project.entry-points."deluge.plugin.web"]
-YaRSS2 = "yarss2:WebUIPlugin"
+YaRSS2 = "deluge_yarss2:WebUIPlugin"
 
 [dependency-groups]
 dev = [
@@ -59,24 +59,24 @@ vendor = ["vendoring==1.4.0", "pip"]
 default-groups = ["dev"]
 
 [tool.setuptools]
-dynamic.version = { attr = "yarss2.__version__" }
+dynamic.version = { attr = "deluge_yarss2.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["yarss2*"]
-exclude = ["yarss2.tests*"]
+include = ["deluge_yarss2*"]
+exclude = ["deluge_yarss2.tests*"]
 
 [tool.setuptools.package-data]
 # The vendored subrepos are not proper packages and must be shipped as data.
-yarss2 = ["data/*", "include/**/*"]
+deluge_yarss2 = ["data/*", "include/**/*"]
 
 [tool.setuptools.exclude-package-data]
 # Keep bytecode from the working tree out of the wheel.
-# Keyed for all packages, since manifest files belong to the innermost package, e.g. `yarss2.include`.
+# Keyed for all packages, since manifest files belong to the innermost package, e.g. `deluge_yarss2.include`.
 "*" = ["*.pyc"]
 
 [tool.pytest.ini_options]
-testpaths = ["yarss2/tests"]
-norecursedirs = ["yarss2/include"]
+testpaths = ["deluge_yarss2/tests"]
+norecursedirs = ["deluge_yarss2/include"]
 markers = [
     "gui: Test GUI",
     "label: Test GUI with label plugin",
@@ -85,7 +85,7 @@ addopts = ["--reactor=default", "-m", "not gui and not label"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["yarss2/include", "yarss2/util/feedparsing"]
+extend-exclude = ["deluge_yarss2/include", "deluge_yarss2/util/feedparsing"]
 builtins = ["_", "__request__"]
 
 [tool.ruff.lint]
@@ -93,10 +93,10 @@ select = ["E", "W", "F", "I", "N"]
 
 [tool.ruff.lint.per-file-ignores]
 # Module name mirrors the GTK widget class it defines, as upstream GTK code does.
-"yarss2/gtk3ui/CellRendererPango.py" = ["N999"]
+"deluge_yarss2/gtk3ui/CellRendererPango.py" = ["N999"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["yarss2"]
+known-first-party = ["deluge_yarss2"]
 section-order = [
     "future",
     "standard-library",
