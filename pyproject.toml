@@ -76,7 +76,7 @@ yarss2 = ["data/*", "include/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["yarss2/tests"]
-norecursedirs = ["yarss2/include", "yarss2/lib"]
+norecursedirs = ["yarss2/include"]
 markers = [
     "gui: Test GUI",
     "label: Test GUI with label plugin",
@@ -85,7 +85,7 @@ addopts = ["--reactor=default", "-m", "not gui and not label"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["yarss2/include", "yarss2/util/feedparsing", "yarss2/lib"]
+extend-exclude = ["yarss2/include", "yarss2/util/feedparsing"]
 builtins = ["_", "__request__"]
 
 [tool.ruff.lint]

@@ -59,14 +59,6 @@ class CorePlugin(PluginInitBase):
         super(CorePlugin, self).__init__(plugin_name)
 
 
-class GtkUIPlugin(PluginInitBase):
-    def __init__(self, plugin_name):
-        load_libs()
-        from gtkui.gtkui import GtkUI as GtkUIPluginClass
-        self._plugin_cls = GtkUIPluginClass
-        super(GtkUIPlugin, self).__init__(plugin_name)
-
-
 class Gtk3UIPlugin(PluginInitBase):
     def __init__(self, plugin_name):
         load_libs()

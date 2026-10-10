@@ -9,20 +9,12 @@
 
 import re
 import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from twisted.internet import threads
 
 from yarss2.util import logging
-
-# Mime (might) not be included with Deluge on Windows.
-try:
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-except ImportError:
-    # These must be readded if required
-    from yarss2.lib.mime.multipart import MIMEMultipart
-    from yarss2.lib.mime.text import MIMEText
-
 
 log = logging.getLogger(__name__)
 

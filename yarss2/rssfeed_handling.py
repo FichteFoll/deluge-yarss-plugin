@@ -122,16 +122,6 @@ def fetch_and_parse_rssfeed_atom(url_file_stream_or_string, site_cookies_dict=No
     return parsed_feeds
 
 
-def fetch_and_parse_rssfeed_feedparser(url_file_stream_or_string, site_cookies_dict=None,
-                                       user_agent=None, request_headers=None, timeout=10):
-    from yarss2.lib.feedparser import api as feedparser
-
-    parsed_feed = feedparser.parse(url_file_stream_or_string, request_headers=request_headers,
-                                   agent=user_agent, timeout=10)
-    parsed_feed['parser'] = "feedparser"
-    return parsed_feed
-
-
 fetch_and_parse_rssfeed = fetch_and_parse_rssfeed_atom
 
 
