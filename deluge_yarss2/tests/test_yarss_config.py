@@ -17,7 +17,6 @@ from . import common as test_common
 
 
 class ConfigTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.config = test_common.get_test_config(verify_config=False)
 
@@ -78,18 +77,19 @@ class ConfigTestCase(unittest.TestCase):
         subscription_changed = deluge_yarss2.yarss_config.get_fresh_subscription_config(key=subscription_key)
 
         # Change type of the value for some keys
-        subscription_changed["regex_include"] = None                # Should be unicode
-        subscription_changed["email_notifications"] = []            # Should be dict
-        subscription_changed["regex_include_ignorecase"] = ""       # Should be boolean
+        subscription_changed["regex_include"] = None  # Should be unicode
+        subscription_changed["email_notifications"] = []  # Should be dict
+        subscription_changed["regex_include_ignorecase"] = ""  # Should be boolean
         subscription_changed["rssfeed_key"] = str(rssfeed_key)  # Should be str
-        subscription_changed["key"] = None                          # Should be str
+        subscription_changed["key"] = None  # Should be str
 
         changed = self.config._verify_types(subscription_key, subscription_changed, default_subscription)
         self.assertTrue(changed)
         self.assertEqual(subscription_changed["regex_include"], default_subscription["regex_include"])
         self.assertEqual(subscription_changed["email_notifications"], default_subscription["email_notifications"])
-        self.assertEqual(subscription_changed["regex_include_ignorecase"],
-                          default_subscription["regex_include_ignorecase"])
+        self.assertEqual(
+            subscription_changed["regex_include_ignorecase"], default_subscription["regex_include_ignorecase"]
+        )
         self.assertEqual(subscription_changed["key"], subscription_key)
 
     def test_verify_types_values_deleted(self):
@@ -250,11 +250,14 @@ class ConfigTestCase(unittest.TestCase):
         # Replace field last_update with last_match
         self.config.config["rssfeeds"] = test_feeds
         self.config.config["subscriptions"] = test_subscriptions
-        self.config.config["cookies"] = {"0": {
-            "active": True,
-            "value": [["uid", "175728"], ["pass", "3421d1a00b48397a874454626decec04"]],
-            "site": "bitmetv.org",
-            "key": "0"}}
+        self.config.config["cookies"] = {
+            "0": {
+                "active": True,
+                "value": [["uid", "175728"], ["pass", "3421d1a00b48397a874454626decec04"]],
+                "site": "bitmetv.org",
+                "key": "0",
+            }
+        }
 
         test_subscriptions["0"]["add_torrents_in_paused_state"] = True
         test_subscriptions["1"]["add_torrents_in_paused_state"] = False
@@ -305,8 +308,10 @@ class ConfigTestCase(unittest.TestCase):
 
         # Added field 'download_location'
         for key in self.config.config["subscriptions"]:
-            self.assertTrue("download_location" in self.config.config["subscriptions"][key],
-                            "Field 'download_location' does not exist!")
+            self.assertTrue(
+                "download_location" in self.config.config["subscriptions"][key],
+                "Field 'download_location' does not exist!",
+            )
 
         for key in self.config.config["rssfeeds"]:
             self.assertTrue("obey_ttl" in self.config.config["rssfeeds"][key], "Field 'obey_ttl' does not exist!")
@@ -345,10 +350,12 @@ class ConfigTestCase(unittest.TestCase):
         self.config.config.run_converter((4, 4), 5, self.config.update_config_to_version5)
 
         # Test changes for "add_torrents_in_paused_state_to_GeneralSubsConf"
-        self.assertEqual(self.config.config["subscriptions"]["0"]["add_torrents_in_paused_state"],
-                          GeneralSubsConf.DISABLED)
-        self.assertEqual(self.config.config["subscriptions"]["1"]["add_torrents_in_paused_state"],
-                          GeneralSubsConf.ENABLED)
+        self.assertEqual(
+            self.config.config["subscriptions"]["0"]["add_torrents_in_paused_state"], GeneralSubsConf.DISABLED
+        )
+        self.assertEqual(
+            self.config.config["subscriptions"]["1"]["add_torrents_in_paused_state"], GeneralSubsConf.ENABLED
+        )
 
         for key in self.config.config["subscriptions"].keys():
             # last_update replaced with last_match

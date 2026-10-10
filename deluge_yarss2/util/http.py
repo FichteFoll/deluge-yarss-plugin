@@ -16,10 +16,22 @@ from urllib.parse import quote as urllib_quote
 from urllib.parse import quote_plus as urllib_quote_plus
 
 
-def download_file(url_file_stream_or_string, site_cookies_dict=None, etag=None, modified=None, user_agent=None,
-                  referrer=None, handlers=None, request_headers=None, response_headers=None,
-                  resolve_relative_uris=None, sanitize_html=None, timeout='Global'):
+def download_file(
+    url_file_stream_or_string,
+    site_cookies_dict=None,
+    etag=None,
+    modified=None,
+    user_agent=None,
+    referrer=None,
+    handlers=None,
+    request_headers=None,
+    response_headers=None,
+    resolve_relative_uris=None,
+    sanitize_html=None,
+    timeout="Global",
+):
     from . import feedparsing
+
     result = dict(
         bozo=False,
         entries=[],
@@ -33,9 +45,18 @@ def download_file(url_file_stream_or_string, site_cookies_dict=None, etag=None, 
             request_headers = {}
         request_headers.update(cookie_header)
 
-    data = feedparsing._open_resource(url_file_stream_or_string, etag, modified, user_agent, referrer,
-                                      handlers, request_headers, result, timeout=timeout)
-    result['content'] = feedparsing.convert_to_utf8(result['headers'], data, result)
+    data = feedparsing._open_resource(
+        url_file_stream_or_string,
+        etag,
+        modified,
+        user_agent,
+        referrer,
+        handlers,
+        request_headers,
+        result,
+        timeout=timeout,
+    )
+    result["content"] = feedparsing.convert_to_utf8(result["headers"], data, result)
     return result
 
 
@@ -50,7 +71,6 @@ def check_fetch_url_scheme(url):
 
 
 class HTTPOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
-
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         check_fetch_url_scheme(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
@@ -110,11 +130,11 @@ def encode_cookie_values(cookies_dict):
     and returns the cookie as used in a HTTP Header"""
     cookie_value = ""
     for key in sorted(cookies_dict):
-        cookie_value += (f"; {key}={cookies_dict[key]}")
+        cookie_value += f"; {key}={cookies_dict[key]}"
     return cookie_value[2:]
 
 
-def url_fix(s, charset='utf-8'):
+def url_fix(s, charset="utf-8"):
     """Taken from werkzeug.utils. Liecense: BSD"""
 
     """Sometimes you get an URL by a user that just isn't a real
@@ -130,7 +150,7 @@ def url_fix(s, charset='utf-8'):
     """
     scheme, netloc, path, qs, anchor = urlparse.urlsplit(s)
     path = urllib_quote(path, safe="%/:=&?~#+!$,;'@()*[]")
-    qs = urllib_quote_plus(qs, ':&=')
+    qs = urllib_quote_plus(qs, ":&=")
     return urlparse.urlunsplit((scheme, netloc, path, qs, anchor))
 
 
@@ -146,7 +166,7 @@ def clean_html_body(html_page):
     safe_html = stripper.get_data()
 
     # Allow max two consecutive \n
-    safe_html = re.sub(r'\n(\n)+', r'\n\n', safe_html)
+    safe_html = re.sub(r"\n(\n)+", r"\n\n", safe_html)
     return safe_html
 
 

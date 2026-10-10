@@ -18,7 +18,6 @@ log = logging.getLogger(__name__)
 
 
 class Logger:
-
     def __init__(self, gtkui_logger=None, logger=log):
         self.gtkui_logger = gtkui_logger
         self.log = logger

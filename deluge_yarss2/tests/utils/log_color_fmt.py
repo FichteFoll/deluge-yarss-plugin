@@ -1,4 +1,3 @@
-
 import copy
 import logging
 import re
@@ -16,39 +15,38 @@ WHITE_ON_BLUE_BG = 44
 
 
 LEVEL_TO_COLORS_MAPPING = {
-    'TRACE': WHITE,
-    'DEBUG': CYAN,
-    'INFO': GREEN,
-    'WARNING': YELLOW,
-    'ERROR': RED,
-    'CRITICAL': WHITE_ON_RED_BG,
+    "TRACE": WHITE,
+    "DEBUG": CYAN,
+    "INFO": GREEN,
+    "WARNING": YELLOW,
+    "ERROR": RED,
+    "CRITICAL": WHITE_ON_RED_BG,
 }
 
-PREFIX = '\033['
-SUFFIX = '\033[0m'
+PREFIX = "\033["
+SUFFIX = "\033[0m"
 
 
 def get_new_key_fmt(m_dict):
     """
     m_dict: {'width': '5', 'fmt': '%(levelname)-5s', 'align': '-', 'key': 'levelname'}
     """
-    if 'width' not in m_dict:
-        return m_dict['fmt']
+    if "width" not in m_dict:
+        return m_dict["fmt"]
 
-    mid_width = int(m_dict['width'])
+    mid_width = int(m_dict["width"])
     mid_width += 9  # Increase width with the number is invisible characters added for coloring
-    new_fmt = "%({}){}s".format(m_dict['key'], "{}{}".format(m_dict['align'], mid_width))
+    new_fmt = "%({}){}s".format(m_dict["key"], "{}{}".format(m_dict["align"], mid_width))
     return new_fmt
 
 
 class ColorFormatter(logging.Formatter):
-
-    colored_fields = ['levelname']
+    colored_fields = ["levelname"]
 
     def __init__(self, formatter=None, colors=True, update_fmt_for_colors=True, **kwargs):
         if formatter:
-            kwargs['fmt'] = formatter._fmt
-            kwargs['datefmt'] = formatter.datefmt
+            kwargs["fmt"] = formatter._fmt
+            kwargs["datefmt"] = formatter.datefmt
         logging.Formatter.__init__(self, **kwargs)
         self.fmt_orig = self._fmt
         self.colors = colors
@@ -64,13 +62,13 @@ class ColorFormatter(logging.Formatter):
         with an adjusted width for the value we colorize
         """
         # Matches format keys on the format on the form "%(levelname)-5s"
-        matches = re.finditer(r'(?P<fmt>%\((?P<key>[^\s%]+)\)(?:(?P<align>(?:-)?)(?P<width>[\d]+))?s)', self._fmt)
+        matches = re.finditer(r"(?P<fmt>%\((?P<key>[^\s%]+)\)(?:(?P<align>(?:-)?)(?P<width>[\d]+))?s)", self._fmt)
         for fmt_match in matches:
             m_dict = fmt_match.groupdict()
-            if m_dict['key'] in self.colored_fields:
+            if m_dict["key"] in self.colored_fields:
                 new_fmt = get_new_key_fmt(m_dict)
-                if m_dict['fmt'] != new_fmt:
-                    self._fmt = self._fmt.replace(m_dict['fmt'], new_fmt)
+                if m_dict["fmt"] != new_fmt:
+                    self._fmt = self._fmt.replace(m_dict["fmt"], new_fmt)
 
     def format(self, record):
         colored_record = copy.copy(record)
@@ -79,6 +77,6 @@ class ColorFormatter(logging.Formatter):
         color_code = WHITE
         if self.colors:
             color_code = LEVEL_TO_COLORS_MAPPING.get(levelname, WHITE)
-        colored_levelname = (f'{PREFIX}{color_code}m{levelname}{SUFFIX}')
+        colored_levelname = f"{PREFIX}{color_code}m{levelname}{SUFFIX}"
         colored_record.levelname = colored_levelname
         return logging.Formatter.format(self, colored_record)

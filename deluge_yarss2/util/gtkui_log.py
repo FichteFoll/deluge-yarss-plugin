@@ -27,7 +27,9 @@ class GTKUILogger:
             time = get_current_date_in_isoformat()
             msg_to_append = f"({time}): {message}"
             buf.insert(buf.get_end_iter(), msg_to_append + "\n")
+
         from gi.repository import GLib  # Do not import on top as only the client needs to have this package
+
         GLib.idle_add(add_msg)
 
 
@@ -35,6 +37,7 @@ class GtkUILogMessageEvent(DelugeEvent):
     """
     Emitted when a message has been written to the log.
     """
+
     def __init__(self, message):
         """
         :param message: the message to be logged

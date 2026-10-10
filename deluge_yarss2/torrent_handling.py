@@ -19,7 +19,6 @@ from deluge_yarss2.util.yarss_email import send_torrent_email
 
 
 class TorrentHandler:
-
     def __init__(self, logger):
         self.log = logger
 
@@ -110,12 +109,15 @@ class TorrentHandler:
                 options["add_paused"] = GeneralSubsConf().get_boolean(subscription_data["add_torrents_in_paused_state"])
             if subscription_data["auto_managed"] != GeneralSubsConf.DEFAULT:
                 options["auto_managed"] = GeneralSubsConf().get_boolean(subscription_data["auto_managed"])
-            if "sequential_download" in subscription_data and\
-               subscription_data["auto_managed"] != GeneralSubsConf.DEFAULT:
+            if (
+                "sequential_download" in subscription_data
+                and subscription_data["auto_managed"] != GeneralSubsConf.DEFAULT
+            ):
                 options["sequential_download"] = GeneralSubsConf().get_boolean(subscription_data["sequential_download"])
             if subscription_data["prioritize_first_last_pieces"] != GeneralSubsConf.DEFAULT:
                 options["prioritize_first_last_pieces"] = GeneralSubsConf().get_boolean(
-                    subscription_data["prioritize_first_last_pieces"])
+                    subscription_data["prioritize_first_last_pieces"]
+                )
 
             # -2 means to use the deluge default config value, so in that case just skip
             if subscription_data["max_download_speed"] != -2:
@@ -129,8 +131,7 @@ class TorrentHandler:
 
         if download.is_magnet:
             self.log.info(f"Adding magnet: '{torrent_url}'")
-            download.torrent_id = component.get("TorrentManager").add(options=options,
-                                                                      magnet=download.url)
+            download.torrent_id = component.get("TorrentManager").add(options=options, magnet=download.url)
         else:
             # Error occured
             if not download.success:
@@ -146,16 +147,19 @@ class TorrentHandler:
                 self.log.warning(download.error_msg)
 
             try:
-                download.torrent_id = component.get("TorrentManager").add(filedump=download.filedump,
-                                                                          filename=os.path.basename(torrent_url),
-                                                                          options=options)
+                download.torrent_id = component.get("TorrentManager").add(
+                    filedump=download.filedump, filename=os.path.basename(torrent_url), options=options
+                )
             except AddTorrentError as err:
                 download.success = False
                 download.set_error(f"Failed to add torrent to Deluge: {str(err)}")
                 self.log.warning(download.error_msg)
             else:
-                if ("Label" in component.get("Core").get_enabled_plugins()
-                        and subscription_data and subscription_data.get("label", "")):
+                if (
+                    "Label" in component.get("Core").get_enabled_plugins()
+                    and subscription_data
+                    and subscription_data.get("label", "")
+                ):
                     component.get("CorePlugin.Label").set_torrent(download.torrent_id, subscription_data["label"])
 
         return download
@@ -172,8 +176,7 @@ class TorrentHandler:
                 # Update subscription with date
                 torrent_time = torrent_match["updated_datetime"]
 
-                last_subscription_update = common.isodate_to_datetime(
-                    torrent_match["subscription_data"]["last_match"])
+                last_subscription_update = common.isodate_to_datetime(torrent_match["subscription_data"]["last_match"])
 
                 last_subscription_update = common.datetime_ensure_timezone(last_subscription_update)
                 # Update subscription time if this is newer
@@ -201,11 +204,13 @@ class TorrentHandler:
             if not config["email_messages"][email_key]["active"]:
                 continue
             # Send email in
-            send_torrent_email(config["email_configurations"],
-                               config["email_messages"][email_key],
-                               subscription_data=torrent_names[key][0],
-                               torrent_name_list=torrent_names[key][1],
-                               deferred=True)
+            send_torrent_email(
+                config["email_configurations"],
+                config["email_messages"][email_key],
+                subscription_data=torrent_names[key][0],
+                torrent_name_list=torrent_names[key][1],
+                deferred=True,
+            )
 
     def on_torrent_finished_event(self, torrent_id):
         pass

@@ -7,9 +7,7 @@ def _get_lists_diff(l1, l2):
     def get_list_str(lines):
         return "[\n{}\n]".format("\n".join([line for line in lines]))
 
-    diff = ('\n' + '\n'.join(difflib.ndiff(
-        get_list_str(l1).splitlines(),
-        get_list_str(l2).splitlines())))
+    diff = "\n" + "\n".join(difflib.ndiff(get_list_str(l1).splitlines(), get_list_str(l2).splitlines()))
     return diff
 
 
@@ -33,7 +31,7 @@ def _get_dicts_diff(dict1, dict2, diff_keys=[]):
     dict2_str_lines = dict2_str.splitlines()
 
     difflines = difflib.ndiff(dict1_str_lines, dict2_str_lines)
-    diff = ('\n' + '\n'.join([line.strip() for line in difflines]))
+    diff = "\n" + "\n".join([line.strip() for line in difflines])
     return diff
 
 
@@ -43,7 +41,7 @@ def assert_almost_equal_any(elt1, elt2, **kwargs):
     elif isinstance(elt1, dict) and isinstance(elt2, dict):
         assert_almost_equal_dict(elt1, elt2, **kwargs)
     elif isinstance(elt1, dict) or isinstance(elt2, float):
-        assert_almost_equal(elt1, elt2, places=kwargs.get('places', 3), msg=f'Got {elt1}. Expected: {elt2}')
+        assert_almost_equal(elt1, elt2, places=kwargs.get("places", 3), msg=f"Got {elt1}. Expected: {elt2}")
     else:
         assert_equal(elt1, elt2)
 

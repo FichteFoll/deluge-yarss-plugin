@@ -25,16 +25,16 @@ def send_email(email_conf, server_conf):
         # Send Multipart email
         if "message_html" in email_conf:
             mime_message = MIMEMultipart("alternative")
-            msg_plain = MIMEText(email_conf["message"].encode('utf-8'), "plain", _charset='utf-8')
-            msg_html = MIMEText(email_conf["message_html"].encode('utf-8'), "html", _charset='utf-8')
+            msg_plain = MIMEText(email_conf["message"].encode("utf-8"), "plain", _charset="utf-8")
+            msg_html = MIMEText(email_conf["message_html"].encode("utf-8"), "html", _charset="utf-8")
             mime_message.attach(msg_plain)
             mime_message.attach(msg_html)
         else:
             # Send plain message
-            mime_message = MIMEText(email_conf["message"].encode('utf-8'), "plain", _charset='utf-8')
+            mime_message = MIMEText(email_conf["message"].encode("utf-8"), "plain", _charset="utf-8")
     elif "message_html" in email_conf:
         # Send html message
-        mime_message = MIMEText(email_conf["message"].encode('utf-8'), "html", _charset='utf-8')
+        mime_message = MIMEText(email_conf["message"].encode("utf-8"), "html", _charset="utf-8")
     else:
         log.warning("Email config must contain either 'message' or 'message_html'")
         return False
@@ -59,9 +59,11 @@ def send_email(email_conf, server_conf):
         f"Sending email message:\nTo: {mime_message['To']}\nFrom: {mime_message['From']}\n"
         f"Subject: {mime_message['Subject']}\n"
     )
-    log.info("Server: {}, port: {}, authentication: {}".format(server_conf["smtp_server"],
-                                                           server_conf["smtp_port"],
-                                                           server_conf["smtp_authentication"]))
+    log.info(
+        "Server: {}, port: {}, authentication: {}".format(
+            server_conf["smtp_server"], server_conf["smtp_port"], server_conf["smtp_authentication"]
+        )
+    )
     if server_conf["smtp_authentication"]:
         mail_server.ehlo()
         mail_server.starttls()
@@ -83,8 +85,15 @@ def send_email(email_conf, server_conf):
     return True
 
 
-def send_torrent_email(email_configurations, email_msg, subscription_data=None,
-                       torrent_name_list=None, deferred=False, callback_func=None, email_data={}):
+def send_torrent_email(
+    email_configurations,
+    email_msg,
+    subscription_data=None,
+    torrent_name_list=None,
+    deferred=False,
+    callback_func=None,
+    email_data={},
+):
     """Send email with optional list of torrents
     Arguments:
     email_configurations - the main email configuration of YARSS2
@@ -106,8 +115,8 @@ def send_torrent_email(email_configurations, email_msg, subscription_data=None,
         torrentlist_plain = " * {}\n".format("\n * ".join(f for f in torrent_name_list))
         msg_plain = email_data["message"].replace("$torrentlist", torrentlist_plain)
         torrentlist_html = "<ul><li>{} </li></ul>".format("</li> \n <li> ".join(f for f in torrent_name_list))
-        msg_html = email_data["message"].replace('\n', '<br/>')
-        msg_html = re.sub(r'\$torrentlist(<br/>){1}?', torrentlist_html, msg_html)
+        msg_html = email_data["message"].replace("\n", "<br/>")
+        msg_html = re.sub(r"\$torrentlist(<br/>){1}?", torrentlist_html, msg_html)
         email_data["message"] = msg_plain
         email_data["message_html"] = msg_html
 

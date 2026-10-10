@@ -13,7 +13,6 @@ from deluge_yarss2.util.common import get_resource
 
 
 class DialogEmailMessage:
-
     def __init__(self, gtkui, message_data={}):
         self.gtkUI = gtkui
         self.message_data = message_data
@@ -21,12 +20,14 @@ class DialogEmailMessage:
     def show(self):
         self.glade = Gtk.Builder.new_from_file(get_resource("dialog_email_message.ui"))
 
-        self.glade.connect_signals({
-            "on_button_save_clicked": self.on_button_save_clicked,
-            "on_button_cancel_clicked": self.on_button_cancel_clicked,
-            "on_dialog_email_message_response": self.on_response,
-            "on_txt_to_adress_query_tooltip": self.on_txt_to_adress_query_tooltip,
-        })
+        self.glade.connect_signals(
+            {
+                "on_button_save_clicked": self.on_button_save_clicked,
+                "on_button_cancel_clicked": self.on_button_cancel_clicked,
+                "on_dialog_email_message_response": self.on_response,
+                "on_txt_to_adress_query_tooltip": self.on_txt_to_adress_query_tooltip,
+            }
+        )
         # Add data
         if self.message_data is not None:
             self.set_initial_data(self.message_data)
@@ -62,8 +63,13 @@ class DialogEmailMessage:
         message = textbuffer.get_text(textbuffer.get_start_iter(), textbuffer.get_end_iter(), True)
 
         if name == "" or address == "" or subject == "" or message == "":
-            md = Gtk.MessageDialog(self.dialog, Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.INFO,
-                                   Gtk.ButtonsType.CLOSE, "All fields are mandatory!")
+            md = Gtk.MessageDialog(
+                self.dialog,
+                Gtk.DialogFlags.DESTROY_WITH_PARENT,
+                Gtk.MessageType.INFO,
+                Gtk.ButtonsType.CLOSE,
+                "All fields are mandatory!",
+            )
             md.run()
             md.destroy()
             return

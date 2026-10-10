@@ -25,6 +25,7 @@ log = logging.getLogger(plugin_tests_logger_name)
 
 def disable_new_release_check():
     import deluge.core.preferencesmanager
+
     deluge.core.preferencesmanager.DEFAULT_PREFS["new_release_check"] = False
 
 
@@ -37,7 +38,11 @@ def get_default_subscriptions(count):
         subscriptions[str(i)] = yarss_config.get_fresh_subscription_config(
             name="Non-matching subscription",
             last_match=deluge_yarss2.util.common.get_default_date().isoformat(),
-            rssfeed_key="0", key=str(i), regex_include=None, regex_exclude=None)
+            rssfeed_key="0",
+            key=str(i),
+            regex_include=None,
+            regex_exclude=None,
+        )
     return subscriptions
 
 
@@ -52,12 +57,15 @@ def get_test_config(config_filename="yarss_test.conf", config_dir=None, verify_c
     """Creates a YaRSS2 config with a reference to a proper deluge config"""
     if config_dir is None:
         config_dir = set_tmp_config_dir()
-    deluge_config = deluge.config.Config(config_filename,
-                                         deluge_yarss2.yarss_config.default_prefs(), config_dir=config_dir)
-    core_config = deluge.config.Config("core.conf", defaults=deluge.core.preferencesmanager.DEFAULT_PREFS,
-                                       config_dir=config_dir)
-    config = deluge_yarss2.yarss_config.YARSSConfig(log, config=deluge_config, core_config=core_config,
-                                             verify_config=verify_config)
+    deluge_config = deluge.config.Config(
+        config_filename, deluge_yarss2.yarss_config.default_prefs(), config_dir=config_dir
+    )
+    core_config = deluge.config.Config(
+        "core.conf", defaults=deluge.core.preferencesmanager.DEFAULT_PREFS, config_dir=config_dir
+    )
+    config = deluge_yarss2.yarss_config.YARSSConfig(
+        log, config=deluge_config, core_config=core_config, verify_config=verify_config
+    )
     return config
 
 
@@ -78,7 +86,7 @@ def load_json_testdata():
 
 def json_load(filename, dict_int_keys=False):
     def datetime_parse(dct):
-        if 'updated' in dct:
+        if "updated" in dct:
             # Add timezone (+0000)
             updated_dt = deluge_yarss2.util.common.isodate_to_datetime(dct["updated"])
             dct["updated"] = updated_dt.isoformat()
@@ -115,6 +123,7 @@ class DatetimeEncoder(json.JSONEncoder):
 ####################################
 # Helper methods for test data
 ####################################
+
 
 def get_test_config_dict():
     config = deluge_yarss2.yarss_config.default_prefs()

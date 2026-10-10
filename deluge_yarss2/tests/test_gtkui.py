@@ -37,7 +37,6 @@ def get(string):
 
 
 class GtkUITestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         defer.setDebugging(True)
         tests_common.set_tmp_config_dir()
@@ -53,12 +52,12 @@ class GtkUITestCase(unittest.TestCase):
 
         def on_shutdown(result):
             component._ComponentRegistry.components = {}
+
         return component.shutdown().addCallback(on_shutdown)
 
 
 @pytest.mark.label
 class GtkUIWithCoreTestCase(unittest.TestCase):
-
     @defer.inlineCallbacks
     def setUp(self):  # NOQA
         # Must override callLater to avoid unclean twisted reactor
@@ -83,6 +82,7 @@ class GtkUIWithCoreTestCase(unittest.TestCase):
     @defer.inlineCallbacks
     def test_get_labels(self, *patched_get):
         from deluge.i18n import setup_mock_translation
+
         setup_mock_translation()
 
         yield component.start()  # Necessary to avoid 'Reactor was unclean' error

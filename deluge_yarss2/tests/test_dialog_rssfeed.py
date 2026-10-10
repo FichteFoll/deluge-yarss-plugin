@@ -18,7 +18,6 @@ from deluge_yarss2.util.http import urlparse
 
 
 class DummyClass:
-
     def __init__(self):
         self.rssfeed = None
         self.cookies = None
@@ -32,7 +31,6 @@ class DummyClass:
 
 @pytest.mark.gui
 class DialogRSSFeedTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.log = logging.getLogger(__name__)
         self.test_rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()
@@ -74,9 +72,9 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         rssfeed["site"] = urlparse.urlparse(url).netloc
         rssfeed["obey_ttl"] = False
 
-        cookies = {'uid': '92323', 'passkey': 'aksdf9798d767sadf8678as6df9df'}
+        cookies = {"uid": "92323", "passkey": "aksdf9798d767sadf8678as6df9df"}
         dummy.rssfeed = rssfeed
-        dummy.cookies = {'0': {'active': True, 'key': '0', 'site': domain, 'value': cookies}}
+        dummy.cookies = {"0": {"active": True, "key": "0", "site": domain, "value": cookies}}
         dialog = DialogRSSFeed(dummy, rssfeed)
         dialog.dialog = dummy
         data = dialog.get_data_fields(cookies=True)

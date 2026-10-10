@@ -19,7 +19,6 @@ from .utils.log_utils import plugin_tests_logger_name
 
 
 class DummyClass:
-
     def __init__(self):
         self.cookie_data = None
 
@@ -32,7 +31,6 @@ class DummyClass:
 
 @pytest.mark.gui
 class DialogCookiesTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.log = logging.getLogger(plugin_tests_logger_name)
         self.test_cookie = deluge_yarss2.yarss_config.get_fresh_cookie_config()

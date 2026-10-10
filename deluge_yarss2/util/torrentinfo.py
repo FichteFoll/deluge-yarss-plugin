@@ -31,6 +31,7 @@ class TorrentInfo:
     :type filename: string
 
     """
+
     def __init__(self, filename=None, filedump=None, filetree=1):
         if not filename and not filedump:
             log.error("Both filename and filedump are None!")
@@ -88,8 +89,9 @@ class TorrentInfo:
                 if "path.utf-8" in f:
                     path = os.path.join(prefix, *f["path.utf-8"])
                 else:
-                    path = decode_string(os.path.join(prefix, decode_string(os.path.join(*f["path"]),
-                                                                            self.encoding)), self.encoding)
+                    path = decode_string(
+                        os.path.join(prefix, decode_string(os.path.join(*f["path"]), self.encoding)), self.encoding
+                    )
                 f["index"] = index
                 paths[path] = f
 
@@ -100,6 +102,7 @@ class TorrentInfo:
                     dirname = os.path.dirname(dirname)
 
             if filetree == 2:
+
                 def walk(path, item):
                     if item["type"] == "dir":
                         item.update(dirs[path])
@@ -110,6 +113,7 @@ class TorrentInfo:
                 file_tree = FileTree2(paths.keys())
                 file_tree.walk(walk)
             else:
+
                 def walk(path, item):
                     if type(item) is dict:
                         return item
@@ -126,14 +130,12 @@ class TorrentInfo:
                             "type": "file",
                             "index": 0,
                             "length": self.__m_metadata["info"]["length"],
-                            "download": True
+                            "download": True,
                         }
                     }
                 }
             else:
-                self.__m_files_tree = {
-                    self.__m_name: (0, self.__m_metadata["info"]["length"], True)
-                }
+                self.__m_files_tree = {self.__m_name: (0, self.__m_metadata["info"]["length"], True)}
 
         self.__m_files = []
         if "files" in self.__m_metadata["info"]:
@@ -145,19 +147,14 @@ class TorrentInfo:
                 if "path.utf-8" in f:
                     path = os.path.join(prefix, *f["path.utf-8"])
                 else:
-                    path = decode_string(os.path.join(prefix, decode_string(os.path.join(*f["path"]),
-                                                                            self.encoding)), self.encoding)
-                self.__m_files.append({
-                    'path': path,
-                    'size': f["length"],
-                    'download': True
-                })
+                    path = decode_string(
+                        os.path.join(prefix, decode_string(os.path.join(*f["path"]), self.encoding)), self.encoding
+                    )
+                self.__m_files.append({"path": path, "size": f["length"], "download": True})
         else:
-            self.__m_files.append({
-                "path": self.__m_name,
-                "size": self.__m_metadata["info"]["length"],
-                "download": True
-            })
+            self.__m_files.append(
+                {"path": self.__m_name, "size": self.__m_metadata["info"]["length"], "download": True}
+            )
 
     def as_dict(self, *keys):
         """

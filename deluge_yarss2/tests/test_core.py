@@ -34,7 +34,6 @@ test_common.disable_new_release_check()
 
 
 class CoreTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         defer.setDebugging(True)
         self.config = test_common.get_test_config()
@@ -56,16 +55,16 @@ class CoreTestCase(unittest.TestCase):
         # Must stop loopingcalls or test fails
         self.core.disable()
 
-#    def test_save_rssfeed(self):
-#        config = test_common.get_test_config()
-#        rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()
-#
-#        core = Core("YaRSS2")
-#        core.enable(config=config)
-#
-#        core.save_rssfeed(self, dict_key=None, rssfeed_data=rssfeed, delete=False)
-#
-#        #default_subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config()
+    #    def test_save_rssfeed(self):
+    #        config = test_common.get_test_config()
+    #        rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()
+    #
+    #        core = Core("YaRSS2")
+    #        core.enable(config=config)
+    #
+    #        core.save_rssfeed(self, dict_key=None, rssfeed_data=rssfeed, delete=False)
+    #
+    #        #default_subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config()
 
     def test_add_torrent(self):
         torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
@@ -108,7 +107,8 @@ class CoreTestCase(unittest.TestCase):
         config["rssfeeds"]["0"]["update_interval"] = 30
         config["rssfeeds"]["0"]["obey_ttl"] = True
         config["rssfeeds"]["0"]["url"] = deluge_yarss2.util.common.get_resource(
-            test_common.testdata_rssfeed_filename, path="tests")
+            test_common.testdata_rssfeed_filename, path="tests"
+        )
 
         self.config.set_config(config)
         self.core.yarss_config = self.config
@@ -130,7 +130,6 @@ class CoreTestCase(unittest.TestCase):
 
 
 class DelugeRPCProtocolTransferTester(DelugeTransferProtocol):
-
     def __init__(self, sessionno):
         super().__init__()
         self.messages_written = []
@@ -145,7 +144,6 @@ class DelugeRPCProtocolTransferTester(DelugeTransferProtocol):
 
 
 class DelugeRPCProtocolTester(DelugeRPCProtocol):
-
     messages = []
 
     def __init__(self, sessionno):
@@ -163,22 +161,21 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
     Deluge RPC protocol which requires all transmitted data to be serializable
     with rencode.
     """
+
     def set_up(self):
         self.set_unittest_maxdiff(None)
         self.rpcserver = RPCServer(listen=False)
         self.rpcserver.factory.protocol = DelugeRPCProtocolTester
 
         self.factory = self.rpcserver.factory
-        self.session_id = '0'
+        self.session_id = "0"
         self.request_id = 11
         self.protocol = self.rpcserver.factory.protocol(self.session_id)
         self.protocol.factory = self.factory
         self.factory.session_protocols[self.session_id] = self.protocol
-        self.factory.interested_events[self.session_id] = ['TorrentFolderRenamedEvent']
+        self.factory.interested_events[self.session_id] = ["TorrentFolderRenamedEvent"]
         self.protocol.sessionno = self.session_id
-        self.factory.authorized_sessions[self.session_id] = self.protocol.AuthLevel(
-            rpcserver.AUTH_LEVEL_DEFAULT, ''
-        )
+        self.factory.authorized_sessions[self.session_id] = self.protocol.AuthLevel(rpcserver.AUTH_LEVEL_DEFAULT, "")
 
         self.config = test_common.get_test_config()
         self.core = Core("test")
@@ -194,7 +191,7 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
         return component.shutdown().addCallback(on_shutdown)
 
     def test_core_get_completion_paths(self):
-        tmp_paths_dir = TempDir(prefix='yarss2_unit_tests')
+        tmp_paths_dir = TempDir(prefix="yarss2_unit_tests")
         test_dirs = []
 
         for i in range(3):
@@ -205,10 +202,7 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
         args = []
 
         completion_text = f"{tmp_paths_dir.path}/d"
-        arg = {
-            "completion_text": completion_text,
-            "show_hidden_files": False
-        }
+        arg = {"completion_text": completion_text, "show_hidden_files": False}
         args.append(arg)
 
         self.protocol.dispatch(self.request_id, method, args, {})
@@ -221,9 +215,11 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
         self.assertEqual(msg_received[1], self.request_id, str(msg_received))
 
         expected_result = dict(arg)
-        expected_result.update({
-            'paths': tuple(test_dirs),
-        })
+        expected_result.update(
+            {
+                "paths": tuple(test_dirs),
+            }
+        )
         self.assertEqual(expected_result, msg_received[2])
 
     def test_core_get_rssfeed_parsed(self):
@@ -234,17 +230,17 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
         file_url = deluge_yarss2.util.common.get_resource(filename, path="tests/data/feeds")
 
         rssfeed_data = {
-            'active': True,
-            'key': '3',
-            'last_update': '2019-10-22T23:28:21+00:00',
-            'name': 'hd-torrents.org',
-            'obey_ttl': False,
-            'prefer_magnet': False,
-            'site': 'hd-torrents.org',
-            'update_interval': 5,
-            'update_on_startup': False,
-            'url': file_url,
-            'user_agent': ''
+            "active": True,
+            "key": "3",
+            "last_update": "2019-10-22T23:28:21+00:00",
+            "name": "hd-torrents.org",
+            "obey_ttl": False,
+            "prefer_magnet": False,
+            "site": "hd-torrents.org",
+            "update_interval": 5,
+            "update_on_startup": False,
+            "url": file_url,
+            "user_agent": "",
         }
         args.append(rssfeed_data)
 
@@ -258,34 +254,34 @@ class RPCServerTestCase(BaseTestCase, TestCaseDebug):
 
         self.assertEqual(msg_received[0], rpcserver.RPC_RESPONSE, str(msg_received))
         self.assertEqual(msg_received[1], self.request_id, str(msg_received))
-        self.assertEqual(msg_received[2]['user_agent'], None)
+        self.assertEqual(msg_received[2]["user_agent"], None)
 
-        items = msg_received[2]['raw_result']['items']
+        items = msg_received[2]["raw_result"]["items"]
 
         expected_item0 = {
-            'title': 'Lolly Tang 2009 09 26 WEB x264-TBS',
-            'link': 'https://eztv.io/ep/1369854/lolly-tang-2009-09-26-web-x264-tbs/',
-            'description': None,
-            'author': None,
-            'categories': ('TV',),
-            'comments': None,
-            'enclosures': (
+            "title": "Lolly Tang 2009 09 26 WEB x264-TBS",
+            "link": "https://eztv.io/ep/1369854/lolly-tang-2009-09-26-web-x264-tbs/",
+            "description": None,
+            "author": None,
+            "categories": ("TV",),
+            "comments": None,
+            "enclosures": (
                 {
-                    'url': 'https://zoink.ch/torrent/Lolly.Tang.2009.09.26.WEB.x264-TBS[eztv].mkv.torrent',
-                    'length': 288475596,
-                    'type': 'application/x-bittorrent'
+                    "url": "https://zoink.ch/torrent/Lolly.Tang.2009.09.26.WEB.x264-TBS[eztv].mkv.torrent",
+                    "length": 288475596,
+                    "type": "application/x-bittorrent",
                 },
             ),
-            'guid': 'https://eztv.io/ep/1369854/lolly-tang-2009-09-26-web-x264-tbs/',
-            'source': None,
-            'torrent': {
-                'filename': 'Lolly.Tang.2009.09.26.WEB.x264-TBS[eztv].mkv',
-                'contentlength': '288475596',
-                'infohash': '4CF874831F61F5DB9C3299E503E28A8103047BA0',
-                'magneturi': 'magnet:?xt=urn:btih:4CF874831F61F5DB9C3299E503E28A8103047BA0&dn=Lolly.Tang.2009.09.26.WEB.x264-TBS%5Beztv%5D.mkv&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=http%3A%2F%2Ftracker.trackerfix.com%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969'  # noqa: E501
+            "guid": "https://eztv.io/ep/1369854/lolly-tang-2009-09-26-web-x264-tbs/",
+            "source": None,
+            "torrent": {
+                "filename": "Lolly.Tang.2009.09.26.WEB.x264-TBS[eztv].mkv",
+                "contentlength": "288475596",
+                "infohash": "4CF874831F61F5DB9C3299E503E28A8103047BA0",
+                "magneturi": "magnet:?xt=urn:btih:4CF874831F61F5DB9C3299E503E28A8103047BA0&dn=Lolly.Tang.2009.09.26.WEB.x264-TBS%5Beztv%5D.mkv&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=http%3A%2F%2Ftracker.trackerfix.com%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969",  # noqa: E501
             },
-            'torrent_item': None,
-            'content_encoded': None,
-            'published_date': '2019-09-27T08:12:48-04:00'
+            "torrent_item": None,
+            "content_encoded": None,
+            "published_date": "2019-09-27T08:12:48-04:00",
         }
         self.assertEqual(items[0], expected_item0)

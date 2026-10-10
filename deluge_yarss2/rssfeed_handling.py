@@ -35,8 +35,8 @@ def _parse_size(string):
 
 def _get_size(item):
     size = []
-    if len(item['enclosures']) > 0:
-        s = item['enclosures'][0]['length']
+    if len(item["enclosures"]) > 0:
+        s = item["enclosures"][0]["length"]
         size.append(int(s))
 
     if "contentlength" in item:
@@ -60,7 +60,7 @@ def _get_size(item):
 
 def get_item_download_link(item):
     if len(item["enclosures"]) > 0:
-        return item["enclosures"][0]['url']
+        return item["enclosures"][0]["url"]
     return item["link"]
 
 
@@ -72,52 +72,60 @@ def atoma_result_to_dict(atoma_result):
 
     def item_to_dict(item):
         d = attr.asdict(item)
-        if d['pub_date'] is not None:
-            dt = d['pub_date']
+        if d["pub_date"] is not None:
+            dt = d["pub_date"]
             if dt.tzinfo is None:
                 dt = common.datetime_add_timezone(dt)
-            d['published_date'] = dt.isoformat()
+            d["published_date"] = dt.isoformat()
             # We must remove datetime.datetime to make the dict encodable by rencode
-            del d['pub_date']
+            del d["pub_date"]
 
         return d
 
     items = [item_to_dict(item) for item in atoma_result.items if item.title is not None]
     result = {
-        'items': items, 'bozo': 0,
-        'feed': {
-            'ttl': atoma_result.ttl,
-            'encoded': atoma_result.content_encoded,
-            'link': atoma_result.link,
-            'title': atoma_result.title,
-            'subtitle': atoma_result.description,
-            'language': atoma_result.language,
-            'version': atoma_result.version,
-        }
+        "items": items,
+        "bozo": 0,
+        "feed": {
+            "ttl": atoma_result.ttl,
+            "encoded": atoma_result.content_encoded,
+            "link": atoma_result.link,
+            "title": atoma_result.title,
+            "subtitle": atoma_result.description,
+            "language": atoma_result.language,
+            "version": atoma_result.version,
+        },
     }
     return result
 
 
-def fetch_and_parse_rssfeed_atom(url_file_stream_or_string, site_cookies_dict=None,
-                                 user_agent=None, request_headers=None, timeout=10):
-    result = http.download_file(url_file_stream_or_string, site_cookies_dict=site_cookies_dict,
-                                user_agent=user_agent, request_headers=request_headers, timeout=timeout)
+def fetch_and_parse_rssfeed_atom(
+    url_file_stream_or_string, site_cookies_dict=None, user_agent=None, request_headers=None, timeout=10
+):
+    result = http.download_file(
+        url_file_stream_or_string,
+        site_cookies_dict=site_cookies_dict,
+        user_agent=user_agent,
+        request_headers=request_headers,
+        timeout=timeout,
+    )
     from deluge_yarss2 import atoma
+
     atoma.rss.supported_rss_versions = []
     parsed_feeds = {}
 
     try:
-        atoma_result = atoma.parse_rss_bytes(result['content'])
+        atoma_result = atoma.parse_rss_bytes(result["content"])
         parsed_feeds = atoma_result_to_dict(atoma_result)
     except atoma.FeedXMLError as err:
-        readable_body = http.clean_html_body(result['content'])
+        readable_body = http.clean_html_body(result["content"])
         parsed_feeds["raw_result"] = readable_body
         parsed_feeds["bozo"] = 1
         parsed_feeds["feed"] = {}
         parsed_feeds["items"] = []
         parsed_feeds["bozo_exception"] = err
 
-    parsed_feeds['parser'] = "atoma"
+    parsed_feeds["parser"] = "atoma"
     return parsed_feeds
 
 
@@ -125,17 +133,16 @@ fetch_and_parse_rssfeed = fetch_and_parse_rssfeed_atom
 
 
 class RSSFeedHandler:
-
     def __init__(self, log):
         self.log = log
 
     def get_link(self, item):
         link = None
         if "link" in item:
-            link = item['link']
-            if len(item['enclosures']) > 0:
+            link = item["link"]
+            if len(item["enclosures"]) > 0:
                 try:
-                    link = item['enclosures'][0]['url']
+                    link = item["enclosures"][0]["url"]
                 except AttributeError:
                     pass
         return link
@@ -144,9 +151,9 @@ class RSSFeedHandler:
         """
         Get magnet URI from torrent item
         """
-        torrent = item['torrent']
-        if torrent and torrent['magneturi'] is not None:
-            return torrent['magneturi']
+        torrent = item["torrent"]
+        if torrent and torrent["magneturi"] is not None:
+            return torrent["magneturi"]
         return None
 
     def get_size(self, item):
@@ -173,8 +180,9 @@ class RSSFeedHandler:
 
         # Will abort after 10 seconds if server doesn't answer
         try:
-            parsed_feed = fetch_and_parse_rssfeed(rssfeed_data["url"], user_agent=user_agent,
-                                                  request_headers=cookie_header, timeout=10)
+            parsed_feed = fetch_and_parse_rssfeed(
+                rssfeed_data["url"], user_agent=user_agent, request_headers=cookie_header, timeout=10
+            )
         except Exception as e:
             self.log.warning("Exception occured in feedparser: " + str(e))
             self.log.warning(
@@ -196,7 +204,7 @@ class RSSFeedHandler:
         key = 0
         no_publish_time = False
 
-        for item in parsed_feed['items']:
+        for item in parsed_feed["items"]:
             # Some RSS feeds do not have a proper timestamp
             magnet = None
             torrent = None
@@ -205,7 +213,7 @@ class RSSFeedHandler:
             if not item:
                 continue
 
-            published_date = item.get('published_date', None)
+            published_date = item.get("published_date", None)
             if published_date is None:
                 no_publish_time = True
                 return_dict["warning"] = "Published time not available!"
@@ -223,9 +231,9 @@ class RSSFeedHandler:
             if rssfeed_data.get("prefer_magnet", None) and magnet:
                 link = magnet
 
-            rssfeeds_dict[key] = self._new_rssfeeds_dict_item(item['title'], link=link,
-                                                              torrent=torrent, magnet=magnet,
-                                                              published_date=published_date)
+            rssfeeds_dict[key] = self._new_rssfeeds_dict_item(
+                item["title"], link=link, torrent=torrent, magnet=magnet, published_date=published_date
+            )
 
             key += 1
 
@@ -235,8 +243,7 @@ class RSSFeedHandler:
             return_dict["items"] = rssfeeds_dict
         return return_dict
 
-    def _new_rssfeeds_dict_item(self, title, link=None, torrent=None, magnet=None,
-                                published_date=None, key=None):
+    def _new_rssfeeds_dict_item(self, title, link=None, torrent=None, magnet=None, published_date=None, key=None):
         d = {}
         d["title"] = title
         d["link"] = link
@@ -403,8 +410,9 @@ class RSSFeedHandler:
 
         # Feed has not yet been fetched.
         if fetch_data["rssfeed_items"] is None:
-            rssfeed_parsed = self.get_rssfeed_parsed(rssfeed_data, site_cookies_dict=fetch_data["site_cookies_dict"],
-                                                     user_agent=fetch_data["user_agent"])
+            rssfeed_parsed = self.get_rssfeed_parsed(
+                rssfeed_data, site_cookies_dict=fetch_data["site_cookies_dict"], user_agent=fetch_data["user_agent"]
+            )
             if rssfeed_parsed is None:
                 return
             if "bozo_exception" in rssfeed_parsed:
@@ -437,10 +445,14 @@ class RSSFeedHandler:
                     self.log.info("Not adding because of old timestamp: '{}'".format(matches[key]["title"]))
                     del matches[key]
                     continue
-            fetch_data["matching_torrents"].append({"title": matches[key]["title"],
-                                                    "link": matches[key]["link"],
-                                                    "updated_datetime": matched_updated,
-                                                    "site_cookies_dict": fetch_data["site_cookies_dict"],
-                                                    "user_agent": fetch_data["user_agent"],
-                                                    "referrer": rssfeed_data["url"],
-                                                    "subscription_data": subscription_data})
+            fetch_data["matching_torrents"].append(
+                {
+                    "title": matches[key]["title"],
+                    "link": matches[key]["link"],
+                    "updated_datetime": matched_updated,
+                    "site_cookies_dict": fetch_data["site_cookies_dict"],
+                    "user_agent": fetch_data["user_agent"],
+                    "referrer": rssfeed_data["url"],
+                    "subscription_data": subscription_data,
+                }
+            )

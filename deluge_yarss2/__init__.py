@@ -22,6 +22,7 @@ __version__ = "2.1.5"
 class CorePlugin(PluginInitBase):
     def __init__(self, plugin_name):
         from .core import Core as CorePluginClass
+
         self._plugin_cls = CorePluginClass
         super().__init__(plugin_name)
 
@@ -29,6 +30,7 @@ class CorePlugin(PluginInitBase):
 class Gtk3UIPlugin(PluginInitBase):
     def __init__(self, plugin_name):
         from .gtk3ui.gtkui import GtkUI as GtkUIPluginClass
+
         self._plugin_cls = GtkUIPluginClass
         super().__init__(plugin_name)
 
@@ -36,5 +38,6 @@ class Gtk3UIPlugin(PluginInitBase):
 class WebUIPlugin(PluginInitBase):
     def __init__(self, plugin_name):
         from .webui import WebUI as WebUIPluginClass
+
         self._plugin_cls = WebUIPluginClass
         super().__init__(plugin_name)

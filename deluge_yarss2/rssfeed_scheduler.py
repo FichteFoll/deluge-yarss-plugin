@@ -38,7 +38,7 @@ class RSSFeedScheduler:
         config = self.yarss_config.get_config()
         for key in config["rssfeeds"]:
             rssfeed = config["rssfeeds"][key]
-            self.set_timer(rssfeed["key"], rssfeed['update_interval'], rssfeed["update_on_startup"])
+            self.set_timer(rssfeed["key"], rssfeed["update_interval"], rssfeed["update_on_startup"])
             self.log.info(f"Scheduled RSS Feed '{rssfeed['name']}' with interval {rssfeed['update_interval']}")
 
     def disable_timers(self):
@@ -102,8 +102,9 @@ class RSSFeedScheduler:
             if self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["active"] is False:
                 return
 
-        fetch_result = self.rssfeedhandler.fetch_feed_torrents(self.yarss_config.get_config(), rssfeed_key,
-                                                               subscription_key=subscription_key)
+        fetch_result = self.rssfeedhandler.fetch_feed_torrents(
+            self.yarss_config.get_config(), rssfeed_key, subscription_key=subscription_key
+        )
         matching_torrents = fetch_result["matching_torrents"]
         # Fetching the torrent files. Do this slow task in non-main thread.
         for torrent in matching_torrents:
@@ -133,8 +134,12 @@ class RSSFeedScheduler:
         def save_subscription_func(subscription_data):
             self.yarss_config.generic_save_config("subscriptions", data_dict=subscription_data)
 
-        return (self.add_torrents_func, save_subscription_func,
-                fetch_result["matching_torrents"], self.yarss_config.get_config())
+        return (
+            self.add_torrents_func,
+            save_subscription_func,
+            fetch_result["matching_torrents"],
+            self.yarss_config.get_config(),
+        )
 
     def add_torrents_callback(self, args):
         """
@@ -156,6 +161,7 @@ class RSSFeedScheduler:
 class RSSFeedRunQueue:
     """Runs functions in separate threads. If a job is already running,
     jobs pushed are queued until the running job has finished"""
+
     def __init__(self, concurrent_max=1):
         self.concurrentMax = concurrent_max
         self._running = 0

@@ -72,6 +72,7 @@ class TestComponent:
     def get_enabled_plugins(self):
         return []
 
+
 # When replacing component with test_component in modules,
 # This is called e.g. when this is executed: component.get("TorrentManager")
 # we ignore the key, and return the test component
@@ -87,7 +88,6 @@ deluge_yarss2.torrent_handling.component = test_torrent_handling
 
 
 class TorrentHandlingTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.patch(http, "fetch_url", lambda url, headers=None: read_file(url))
         self.log = log
@@ -116,8 +116,8 @@ class TorrentHandlingTestCase(unittest.TestCase):
         filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")
         torrent_info = {"link": filename, "site_cookies_dict": {}}
 
-        with mock.patch.object(TestComponent, 'add') as test_component_add:
-            test_component_add.side_effect = AddTorrentError(f'Torrent already in session ({1}).')
+        with mock.patch.object(TestComponent, "add") as test_component_add:
+            test_component_add.side_effect = AddTorrentError(f"Torrent already in session ({1}).")
             torrent_added = handler.add_torrent(torrent_info)
             self.assertFalse(torrent_added.success)
 
@@ -153,10 +153,12 @@ class TorrentHandlingTestCase(unittest.TestCase):
         subscription_data["add_torrents_in_paused_state"] = GeneralSubsConf.DEFAULT
 
         download = TorrentDownload()
-        torrent_info = {"link": "http://url.com/file.torrent",
-                        "site_cookies_dict": {},
-                        "subscription_data": subscription_data,
-                        "torrent_download": download}
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+            "torrent_download": download,
+        }
 
         d = handler.add_torrent(torrent_info)
         self.assertTrue(d.success)
@@ -172,12 +174,14 @@ class TorrentHandlingTestCase(unittest.TestCase):
         handler.download_torrent_file = test_component.download_torrent_file
         filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")
         test_component.use_filedump = read_file(filename)
-        torrent_info = {"link": "http://url.com/file.torrent",
-                        "site_cookies_dict": {"cookiekey": "cookievalue"},
-                        "user_agent": "test"}
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {"cookiekey": "cookievalue"},
+            "user_agent": "test",
+        }
         download = handler.get_torrent(torrent_info)
-        self.assertEqual(download.headers, {'User-Agent': 'test'})
-        self.assertEqual(download.cookies, {'cookiekey': 'cookievalue'})
+        self.assertEqual(download.headers, {"User-Agent": "test"})
+        self.assertEqual(download.cookies, {"cookiekey": "cookievalue"})
         self.assertFalse(download.is_magnet)
 
     def test_get_torrent_magnet(self):
@@ -203,6 +207,7 @@ class TorrentHandlingTestCase(unittest.TestCase):
     def test_add_torrents(self):
         handler = TorrentHandler(self.log)
         from deluge_yarss2.rssfeed_handling import RSSFeedHandler
+
         self.rssfeedhandler = RSSFeedHandler(self.log)
 
         # Override method download_torrent_file
@@ -210,7 +215,7 @@ class TorrentHandlingTestCase(unittest.TestCase):
         filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")
         test_component.use_filedump = read_file(filename)
 
-        config = get_test_config_dict()                                # 0 is the rssfeed key
+        config = get_test_config_dict()  # 0 is the rssfeed key
         match_result = self.rssfeedhandler.fetch_feed_torrents(config, "0")
         matching_torrents = match_result["matching_torrents"]
         saved_subscriptions = []
@@ -221,6 +226,7 @@ class TorrentHandlingTestCase(unittest.TestCase):
         handler.add_torrents(save_subscription_func, matching_torrents, self.config.get_config())
         self.assertEqual(len(saved_subscriptions), 3)
         handler.use_filedump = None
+
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):
     torrent_path = "/file.torrent"
@@ -245,7 +251,6 @@ class TorrentRequestHandler(BaseHTTPRequestHandler):
 
 
 class DownloadTorrentFileTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")
         self.torrent_data = read_file(filename)
@@ -261,9 +266,11 @@ class DownloadTorrentFileTestCase(unittest.TestCase):
         self.handler = TorrentHandler(log)
 
     def test_download_torrent_file(self):
-        download = self.handler.download_torrent_file(self.base_url + TorrentRequestHandler.torrent_path,
-                                                      cookies={"key1": "value1", "key2": "value2"},
-                                                      headers={"User-Agent": "yarss2-test"})
+        download = self.handler.download_torrent_file(
+            self.base_url + TorrentRequestHandler.torrent_path,
+            cookies={"key1": "value1", "key2": "value2"},
+            headers={"User-Agent": "yarss2-test"},
+        )
         self.assertTrue(download.success)
         self.assertEqual(download.filedump, self.torrent_data)
         request_headers = self.server.request_headers.pop()

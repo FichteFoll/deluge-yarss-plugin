@@ -24,7 +24,6 @@ log = logging.getLogger(plugin_tests_logger_name)
 
 
 class RSSFeedSchedulerTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.rssfeeds = test_common.get_default_rssfeeds(5)
         self.rssfeeds["0"]["update_interval"] = 1
@@ -34,8 +33,9 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.rssfeeds["4"]["update_interval"] = 120
 
         self.config = test_common.get_test_config()
-        self.config.set_config({"rssfeeds": self.rssfeeds,
-                                "email_configurations": {"send_email_on_torrent_events": False}})
+        self.config.set_config(
+            {"rssfeeds": self.rssfeeds, "email_configurations": {"send_email_on_torrent_events": False}}
+        )
 
         self.scheduler = RSSFeedScheduler(self.config, log)
         test_component = TestComponent()
@@ -55,8 +55,9 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
             # Does the timer have the correct interval?
             interval = self.scheduler.rssfeed_timers[key]["timer"].interval
             self.assertEqual(self.rssfeeds[key]["update_interval"] * 60, interval)
-            self.assertEqual(self.rssfeeds[key]["update_interval"],
-                              self.scheduler.rssfeed_timers[key]["update_interval"])
+            self.assertEqual(
+                self.rssfeeds[key]["update_interval"], self.scheduler.rssfeed_timers[key]["update_interval"]
+            )
 
     def test_disable_timers(self):
         self.scheduler.disable_timers()
@@ -128,7 +129,8 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         config["rssfeeds"]["0"]["update_interval"] = 30
         config["rssfeeds"]["0"]["obey_ttl"] = True
         config["rssfeeds"]["0"]["url"] = deluge_yarss2.util.common.get_resource(
-            test_common.testdata_rssfeed_filename, path="tests")
+            test_common.testdata_rssfeed_filename, path="tests"
+        )
 
         yarss_config = test_common.get_test_config()
         yarss_config.set_config(config)
@@ -139,6 +141,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         def add_torrents_pass(*arg):
             pass
+
         self.scheduler.add_torrents_func = add_torrents_pass
 
         # Run the rssfeed with key 0
@@ -163,9 +166,11 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         main_thread = threading.current_thread()
 
         def add_torrents_cb(*arg):
-            self.assertEqual(main_thread, threading.current_thread(),
-                              "add_torrents must be called from the main thread!")
+            self.assertEqual(
+                main_thread, threading.current_thread(), "add_torrents must be called from the main thread!"
+            )
             add_torrents_count.append(0)
+
         self.scheduler.add_torrents_func = add_torrents_cb
 
         d_first = self.scheduler.queue_rssfeed_update(rssfeed_key="0")
@@ -175,11 +180,11 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         def verify_callback_count(args):
             self.assertEqual(len(add_torrents_count), 3)
+
         return DeferredList([d_first, d_last]).addBoth(verify_callback_count)
 
 
 class RSSFeedRunQueueTestCase(unittest.TestCase):
-
     def test_task_queue(self):
         """Test the RSSFeedRunQueue
         Test that the jobs are not run in main thread and that the jobs are run sequentially

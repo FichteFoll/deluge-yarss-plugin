@@ -32,6 +32,7 @@ def get_version():
 
 def get_deluge_version():
     import deluge.common
+
     return deluge.common.get_version()
 
 
@@ -82,6 +83,7 @@ def datetime_ensure_timezone(dt):
 
 def datetime_add_timezone(dt, tzinfo=None):
     from deluge_yarss2._vendor.dateutil.tz import tzutc
+
     if tzinfo is None:
         tzinfo = tzutc()
     return dt.replace(tzinfo=tzinfo)
@@ -97,11 +99,13 @@ def isodate_to_datetime(date_in_isoformat):
 
     """
     from deluge_yarss2._vendor.dateutil import parser as dateutil_parser
+
     try:
         dt = dateutil_parser.parse(date_in_isoformat)
         return datetime_add_timezone(dt)
     except ValueError as err:
         from deluge_yarss2.util import logging
+
         log = logging.getLogger(__name__)
         log.warning("isodate_to_datetime error:", err)
         return get_default_date()
@@ -168,9 +172,10 @@ def linenumber(level=3):
 
 def get_exception_string():
     import traceback
+
     exc_type, exc_value, exc_traceback = sys.exc_info()
     lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    return ''.join('!! ' + line for line in lines)
+    return "".join("!! " + line for line in lines)
 
 
 def dicts_equals(dict1, dict2, debug=False):
@@ -202,6 +207,7 @@ def is_hidden(filepath):
     def has_hidden_attribute(filepath):
         import win32api
         import win32con
+
         try:
             attribute = win32api.GetFileAttributes(filepath)
             return attribute & (win32con.FILE_ATTRIBUTE_HIDDEN | win32con.FILE_ATTRIBUTE_SYSTEM)
@@ -210,9 +216,9 @@ def is_hidden(filepath):
 
     name = os.path.basename(os.path.abspath(filepath))
     # Windows
-    if os.name == 'nt':
+    if os.name == "nt":
         return has_hidden_attribute(filepath)
-    return name.startswith('.')
+    return name.startswith(".")
 
 
 def get_completion_paths(args):
@@ -271,6 +277,7 @@ def get_completion_paths(args):
 
 class GeneralSubsConf:
     """General subscription config"""
+
     DISABLED = "False"
     ENABLED = "True"
     DEFAULT = "Default"

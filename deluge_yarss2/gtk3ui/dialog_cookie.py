@@ -14,18 +14,19 @@ from .common import Gtk
 
 
 class DialogCookie:
-
     def __init__(self, gtkui, cookie_data):
         self.gtkUI = gtkui
         self.cookie_data = cookie_data
         self.glade = Gtk.Builder.new_from_file(get_resource("dialog_cookie.ui"))
-        self.glade.connect_signals({
-            "on_button_add_cookie_data_clicked": self.on_button_add_cookie_data_clicked,
-            "on_button_remove_cookie_data_clicked": self.on_button_remove_cookie_data_clicked,
-            "on_button_save_clicked": self.on_button_save_clicked,
-            "on_button_cancel_clicked": self.on_button_cancel_clicked,
-            "on_dialog_cookies_response": self.on_response,
-        })
+        self.glade.connect_signals(
+            {
+                "on_button_add_cookie_data_clicked": self.on_button_add_cookie_data_clicked,
+                "on_button_remove_cookie_data_clicked": self.on_button_remove_cookie_data_clicked,
+                "on_button_save_clicked": self.on_button_save_clicked,
+                "on_button_cancel_clicked": self.on_button_cancel_clicked,
+                "on_dialog_cookies_response": self.on_response,
+            }
+        )
         self.treeview = self.setup_cookie_list()
 
         if self.cookie_data:

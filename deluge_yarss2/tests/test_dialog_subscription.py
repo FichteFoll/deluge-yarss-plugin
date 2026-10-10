@@ -40,12 +40,11 @@ class TestGTKUIBase:
 
 
 class ComponentTestBase(unittest.TestCase):
-
     patch_component_start = True
 
     def setUp(self):  # NOQA
-        if getattr(self, 'patch_component_start', False) is True:
-            self.component_start_patcher = mock.patch('deluge.component.start')
+        if getattr(self, "patch_component_start", False) is True:
+            self.component_start_patcher = mock.patch("deluge.component.start")
             self.component_start_patcher.start()
 
     def tearDown(self):  # NOQA
@@ -53,7 +52,7 @@ class ComponentTestBase(unittest.TestCase):
             # Components aren't removed from registry in component.shutdown
             # so must do that manually
             component._ComponentRegistry.components = {}
-            if getattr(self, 'patch_component_start', False) is True:
+            if getattr(self, "patch_component_start", False) is True:
                 self.component_start_patcher.stop()
 
         return component.shutdown().addCallback(on_shutdown)
@@ -61,12 +60,12 @@ class ComponentTestBase(unittest.TestCase):
     def enable_twisted_debug(self):
         defer.setDebugging(True)
         import twisted.internet.base
+
         twisted.internet.base.DelayedCall.debug = True
 
 
 @pytest.mark.gui
 class DialogSubscriptionTestCase(ComponentTestBase):
-
     def setUp(self):  # NOQA
         super().setUp()
         self.log = logging.getLogger(plugin_tests_logger_name)
@@ -111,20 +110,22 @@ class DialogSubscriptionTestCase(ComponentTestBase):
         if not subscription_config:
             subscription_config = yarss_config.get_fresh_subscription_config()
 
-        subscription_dialog = DialogSubscription(TestGTKUIBase(),  # GTKUI
-                                                 self.log,  # logger
-                                                 subscription_config,
-                                                 config["rssfeeds"],
-                                                 {},  # self.email_messages,
-                                                 {})  # self.cookies)
+        subscription_dialog = DialogSubscription(
+            TestGTKUIBase(),  # GTKUI
+            self.log,  # logger
+            subscription_config,
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
 
         def get_rssfeed_parsed(rssfeed_data, site_cookies_dict=None, user_agent=None):
-            res = subscription_dialog.rssfeedhandler.get_rssfeed_parsed(rssfeed_data,
-                                                                        site_cookies_dict=site_cookies_dict,
-                                                                        user_agent=user_agent)
+            res = subscription_dialog.rssfeedhandler.get_rssfeed_parsed(
+                rssfeed_data, site_cookies_dict=site_cookies_dict, user_agent=user_agent
+            )
             return defer.succeed(res)
 
-        with mock.patch.object(subscription_dialog, 'get_rssfeed_parsed', new=get_rssfeed_parsed):
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed", new=get_rssfeed_parsed):
             subscription_dialog.setup()
 
             def pass_func(*arg):
@@ -166,19 +167,25 @@ class DialogSubscriptionTestCase(ComponentTestBase):
 
             result = self.get_rssfeed_store_content(dialog_subscription)
 
-            p_include = re.compile(include_regex,
-                                   re.IGNORECASE if subscription_config["regex_include_ignorecase"] else 0)
-            p_exclude = re.compile(exclude_regex,
-                                   re.IGNORECASE if subscription_config["regex_exclude_ignorecase"] else 0)
+            p_include = re.compile(
+                include_regex, re.IGNORECASE if subscription_config["regex_include_ignorecase"] else 0
+            )
+            p_exclude = re.compile(
+                exclude_regex, re.IGNORECASE if subscription_config["regex_exclude_ignorecase"] else 0
+            )
             match_count = 0
             for k in result:
                 if result[k]["matches"]:
                     match_count += 1
-                    self.assertTrue(p_include.search(result[k]["title"]),
-                                    "Expected '{}' to in '{}'".format(include_regex, result[k]["title"]))
+                    self.assertTrue(
+                        p_include.search(result[k]["title"]),
+                        "Expected '{}' to in '{}'".format(include_regex, result[k]["title"]),
+                    )
                 else:
-                    self.assertTrue(p_exclude.search(result[k]["title"]),
-                                    "Expected '{}' to in '{}'".format(exclude_regex, result[k]["title"]))
+                    self.assertTrue(
+                        p_exclude.search(result[k]["title"]),
+                        "Expected '{}' to in '{}'".format(exclude_regex, result[k]["title"]),
+                    )
             self.assertEqual(match_count, expected_match_count)
 
         deferred = self.run_select_rssfeed(callback_func=run_search_test)
@@ -266,14 +273,16 @@ class DialogSubscriptionTestCase(ComponentTestBase):
                 testcase.assertEquals(subscription_data["prioritize_first_last_pieces"], "Default")
 
         subscription_config = yarss_config.get_fresh_subscription_config()
-        subscription_dialog = DialogSubscription(TestGTKUI(),  # GTKUI
-                                                 self.log,  # logger
-                                                 subscription_config,
-                                                 config["rssfeeds"],
-                                                 {},  # self.email_messages,
-                                                 {})  # self.cookies)
+        subscription_dialog = DialogSubscription(
+            TestGTKUI(),  # GTKUI
+            self.log,  # logger
+            subscription_config,
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
 
-        with mock.patch.object(subscription_dialog, 'get_rssfeed_parsed') as mocked_func:
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed") as mocked_func:
             mocked_func.return_value = defer.succeed(None)
             subscription_dialog.setup()
             subscription_dialog.get_object("txt_name").set_text(subscription_title)
@@ -298,7 +307,6 @@ class DialogSubscriptionTestCase(ComponentTestBase):
         testcase = self
 
         class TestGTKUI(unittest.TestCase, TestGTKUIBase):
-
             def __init__(self):
                 TestGTKUIBase.__init__(self)
                 self.labels = ["Test_label"]
@@ -307,13 +315,15 @@ class DialogSubscriptionTestCase(ComponentTestBase):
                 testcase.assertEquals(subscription_data["label"], self.labels[0])
 
         subscription_config = yarss_config.get_fresh_subscription_config()
-        subscription_dialog = DialogSubscription(TestGTKUI(),  # GTKUI
-                                                 self.log,  # logger
-                                                 subscription_config,
-                                                 config["rssfeeds"],
-                                                 {},  # self.email_messages,
-                                                 {})  # self.cookies)
-        with mock.patch.object(subscription_dialog, 'get_rssfeed_parsed') as mocked_func:
+        subscription_dialog = DialogSubscription(
+            TestGTKUI(),  # GTKUI
+            self.log,  # logger
+            subscription_config,
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed") as mocked_func:
             mocked_func.return_value = defer.succeed(None)
             subscription_dialog.setup()
             subscription_dialog.glade.get_object("txt_name").set_text(subscription_title)
@@ -329,7 +339,6 @@ class DialogSubscriptionTestCase(ComponentTestBase):
         testcase = self
 
         class TestGTKUI(unittest.TestCase, TestGTKUIBase):
-
             def __init__(self):
                 TestGTKUIBase.__init__(self)
                 self.labels = ["Test_label"]
@@ -339,26 +348,29 @@ class DialogSubscriptionTestCase(ComponentTestBase):
 
             def add_torrent(self, torrent_link, subscription_data):
                 torrent_download = {
-                    'filedump': '<head>\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />\n<meta name="theme-color" content="#3860BB" />\n</head>\n<body>\n<script type="text/javascript" src="https://dyncdn.me/static/20/js/jquery-1.11.3.min.js"></script>\n<style type="text/css">a,abbr,acronym,address,applet,article,aside,audio,b,big,blockquote,body,canvas,caption,center,cite,code,dd,del,details,dfn,div,dl,dt,em,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hgroup,html,i,iframe,img,ins,kbd,label,legend,li,mark,menu,nav,object,ol,p,pre,q,s,samp,section,small,span,strike,strong,sub,summary,sup,table,tbody,td,tfoot,th,thead,time,tr,tt,u,ul,var,video{margin:0;padding:0;border:0;outline:0;font:inherit;vertical-align:baseline}article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:after,blockquote:before,q:after,q:before{content:\'\';content:none}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}\nbody {\n    background: #000 url("https://dyncdn.me/static/20/img/bknd_body.jpg") repeat-x scroll 0 0 !important;\n    font: 400 8pt normal Tahoma,Verdana,Arial,Arial  !important;\n}\n.button {\n    background-color: #3860bb;\n    border: none;\n    color: white;\n    padding: 15px 32px;\n    text-align: center;\n    text-decoration: none;\n    display: inline-block;\n    font-size: 16px;\n    cursor: pointer;\n    text-transform: none;\n    overflow: visible;\n}\n.content-rounded {\n    background: #fff none repeat scroll 0 0 !important;\n    border-radius: 3px;\n    color: #000 !important;\n    padding: 20px;\n    width:961px;\n}\n</style><div align="center" style="margin-top:20px;padding-top:20px;color: #000 !important;">\n<div  class="content-rounded" style="color: #000 !important;">\n<img src="https://dyncdn.me/static/20/img/logo_dark_nodomain2_optimized.png"><br/>\nPlease wait while we try to verify your browser...<br/>\n<div style="font-weight: bold"><b>Please don\'t change tabs / minimize your browser or the process will fail</b></div><br/>\nIf you are stuck on this page disable your browser addons<br/><img src="https://dyncdn.me/static/20/img/loading_flat.gif">\n</div>\n</div>\n<script>\nvar w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;\nvar h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;\nvar days = 7;\nvar date = new Date();\nvar name = \'sk\';\nvar value_sk = \'pgjy3amc4u\';\nvar value_c = \'23842531\';\nvar value_i = \'1367198171\';\ndate.setTime(date.getTime()+(days*24*60*60*1000));\nvar expires = ";expires="+date.toGMTString();\ndocument.cookie = name+"="+value_sk+expires+"; path=/";\n\nif(w < 100 || h < 100) {\n\twindow.location.href = "/threat_defence.php?defence=nojc&r=38283315";\n} else {\n\tif(!document.domain) { var ref_cookie = \'\'; } else { var ref_cookie = document.domain; }\n\t$.ajax({type: \'GET\',url: \'/threat_defence_ajax.php?sk=\'+value_sk+\'&cid=\'+value_c+\'&i=\'+value_i+\'&r=25867870\',contentType: \'text/plain\', async: true, timeout: 3000, cache: false });\n\tsetTimeout(function(){\n\t\twindow.location.href = "/threat_defence.php?defence=2&sk="+value_sk+"&cid="+value_c+"&i="+value_i+"&ref_cookie="+ref_cookie+"&r=72304732";\n\t}, 5500);\n}\n</script>\n\t\t\n\n\t\t\n\t\t',  # noqa: E501
-                    'error_msg': "Unable to decode torrent file! (unexpected end of file in bencoded string) URL: 'http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t'",  # noqa: E501
-                    'torrent_id': None,
-                    'success': False,
-                    'url': 'http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t',
-                    'is_magnet': False,
-                    'cookies_dict': None,
-                    'cookies': {},
-                    'headers': {}}
+                    "filedump": '<head>\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />\n<meta name="theme-color" content="#3860BB" />\n</head>\n<body>\n<script type="text/javascript" src="https://dyncdn.me/static/20/js/jquery-1.11.3.min.js"></script>\n<style type="text/css">a,abbr,acronym,address,applet,article,aside,audio,b,big,blockquote,body,canvas,caption,center,cite,code,dd,del,details,dfn,div,dl,dt,em,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hgroup,html,i,iframe,img,ins,kbd,label,legend,li,mark,menu,nav,object,ol,p,pre,q,s,samp,section,small,span,strike,strong,sub,summary,sup,table,tbody,td,tfoot,th,thead,time,tr,tt,u,ul,var,video{margin:0;padding:0;border:0;outline:0;font:inherit;vertical-align:baseline}article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:after,blockquote:before,q:after,q:before{content:\'\';content:none}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}\nbody {\n    background: #000 url("https://dyncdn.me/static/20/img/bknd_body.jpg") repeat-x scroll 0 0 !important;\n    font: 400 8pt normal Tahoma,Verdana,Arial,Arial  !important;\n}\n.button {\n    background-color: #3860bb;\n    border: none;\n    color: white;\n    padding: 15px 32px;\n    text-align: center;\n    text-decoration: none;\n    display: inline-block;\n    font-size: 16px;\n    cursor: pointer;\n    text-transform: none;\n    overflow: visible;\n}\n.content-rounded {\n    background: #fff none repeat scroll 0 0 !important;\n    border-radius: 3px;\n    color: #000 !important;\n    padding: 20px;\n    width:961px;\n}\n</style><div align="center" style="margin-top:20px;padding-top:20px;color: #000 !important;">\n<div  class="content-rounded" style="color: #000 !important;">\n<img src="https://dyncdn.me/static/20/img/logo_dark_nodomain2_optimized.png"><br/>\nPlease wait while we try to verify your browser...<br/>\n<div style="font-weight: bold"><b>Please don\'t change tabs / minimize your browser or the process will fail</b></div><br/>\nIf you are stuck on this page disable your browser addons<br/><img src="https://dyncdn.me/static/20/img/loading_flat.gif">\n</div>\n</div>\n<script>\nvar w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;\nvar h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;\nvar days = 7;\nvar date = new Date();\nvar name = \'sk\';\nvar value_sk = \'pgjy3amc4u\';\nvar value_c = \'23842531\';\nvar value_i = \'1367198171\';\ndate.setTime(date.getTime()+(days*24*60*60*1000));\nvar expires = ";expires="+date.toGMTString();\ndocument.cookie = name+"="+value_sk+expires+"; path=/";\n\nif(w < 100 || h < 100) {\n\twindow.location.href = "/threat_defence.php?defence=nojc&r=38283315";\n} else {\n\tif(!document.domain) { var ref_cookie = \'\'; } else { var ref_cookie = document.domain; }\n\t$.ajax({type: \'GET\',url: \'/threat_defence_ajax.php?sk=\'+value_sk+\'&cid=\'+value_c+\'&i=\'+value_i+\'&r=25867870\',contentType: \'text/plain\', async: true, timeout: 3000, cache: false });\n\tsetTimeout(function(){\n\t\twindow.location.href = "/threat_defence.php?defence=2&sk="+value_sk+"&cid="+value_c+"&i="+value_i+"&ref_cookie="+ref_cookie+"&r=72304732";\n\t}, 5500);\n}\n</script>\n\t\t\n\n\t\t\n\t\t',  # noqa: E501
+                    "error_msg": "Unable to decode torrent file! (unexpected end of file in bencoded string) URL: 'http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t'",  # noqa: E501
+                    "torrent_id": None,
+                    "success": False,
+                    "url": "http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t",
+                    "is_magnet": False,
+                    "cookies_dict": None,
+                    "cookies": {},
+                    "headers": {},
+                }
                 return defer.succeed(torrent_download)
 
         yield component.start()  # Necessary to avoid 'Reactor was unclean' error
 
         subscription_config = yarss_config.get_fresh_subscription_config()
-        subscription_dialog = DialogSubscription(TestGTKUI(),  # GTKUI
-                                                 self.log,  # logger
-                                                 subscription_config,
-                                                 config["rssfeeds"],
-                                                 {},  # self.email_messages,
-                                                 {})  # self.cookies)
+        subscription_dialog = DialogSubscription(
+            TestGTKUI(),  # GTKUI
+            self.log,  # logger
+            subscription_config,
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
         subscription_dialog.setup()
 
         torrent_link = "http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t"

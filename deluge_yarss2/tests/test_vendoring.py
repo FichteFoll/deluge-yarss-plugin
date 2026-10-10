@@ -8,7 +8,6 @@ import deluge_yarss2.atoma.utils
 
 
 class VendoringTestCase(unittest.TestCase):
-
     def test_plugin_does_not_modify_sys_path(self):
         # A fresh interpreter, since the test process may have imported the plugin already.
         code = (

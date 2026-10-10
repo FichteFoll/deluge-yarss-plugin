@@ -14,7 +14,6 @@ from deluge_yarss2.util import common
 # Plain pytest functions run inside the reactor greenlet of pytest-twisted,
 # which leaves the reactor unusable for the trial test cases collected after them.
 class CommonUtilTestCase(unittest.TestCase):
-
     def test_get_version(self):
         self.assertEqual(common.get_version(), deluge_yarss2.__version__)
 

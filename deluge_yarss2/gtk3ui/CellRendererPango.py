@@ -10,7 +10,6 @@ from .common import GObject, Gtk, Pango, PangoCairo
 
 
 class CustomAttribute(GObject.GObject):
-
     def __init__(self, attributes_dict=None):
         super().__init__()
         self.attributes_dict = attributes_dict
@@ -23,7 +22,6 @@ GObject.type_register(CustomAttribute)
 
 
 class CellRendererPango(Gtk.CellRendererText):
-
     __gproperties__ = {
         "custom": (CustomAttribute, "custom", "custom", GObject.ParamFlags.READWRITE),
     }
@@ -49,20 +47,20 @@ class CellRendererPango(Gtk.CellRendererText):
 
     def do_get_property(self, property):
         if property.name not in self.property_names:
-            raise TypeError(f'No property named {property.name}')
+            raise TypeError(f"No property named {property.name}")
         return self.__dict__[property.name]
 
     def do_set_property(self, property, value):
         if property.name not in self.property_names:
-            raise TypeError(f'No property named {property.name}')
+            raise TypeError(f"No property named {property.name}")
         self.__dict__[property.name] = value
 
     def get_text(self):
-        value = self.get_property('text')
+        value = self.get_property("text")
         return value
 
     def get_layout(self, widget):
-        '''Gets the Pango layout used in the cell in a TreeView widget.'''
+        """Gets the Pango layout used in the cell in a TreeView widget."""
         layout = Pango.Layout(widget.get_pango_context())
         layout.set_width(-1)  # Do not wrap text.
         return layout
@@ -82,7 +80,7 @@ class CellRendererPango(Gtk.CellRendererText):
         markup = self.get_text()
 
         def rgb_to_hex(rgb):
-            return '#{:02x}{:02x}{:02x}'.format(*rgb)
+            return "#{:02x}{:02x}{:02x}".format(*rgb)
 
         if custom_attr and custom_attr.attributes_dict:
             attributes_dict = custom_attr.attributes_dict

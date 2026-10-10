@@ -5,11 +5,12 @@ skip them when printing tracebacks, just as it does for their corresponding
 methods in ``unittest`` proper.
 
 """
+
 import re
 import unittest
 
 # F822 undefined name 'assert_almost_equal' in __all__
-__all__ = ['ok_', 'eq_', 'assert_equal', 'assert_almost_equal']  # noqa: F822
+__all__ = ["ok_", "eq_", "assert_equal", "assert_almost_equal"]  # noqa: F822
 
 
 # Use the same flag as unittest itself to prevent descent into these functions:
@@ -17,15 +18,13 @@ __unittest = 1
 
 
 def ok_(expr, msg=None):
-    """Shorthand for assert. Saves 3 whole characters!
-    """
+    """Shorthand for assert. Saves 3 whole characters!"""
     if not expr:
         raise AssertionError(msg)
 
 
 def eq_(a, b, msg=None):
-    """Shorthand for 'assert a == b, "%r != %r" % (a, b)
-    """
+    """Shorthand for 'assert a == b, "%r != %r" % (a, b)"""
     if not a == b:
         raise AssertionError(msg or f"{a!r} != {b!r}")
 
@@ -34,11 +33,11 @@ def eq_(a, b, msg=None):
 # Expose assert* from unittest.TestCase
 # - give them pep8 style names
 #
-caps = re.compile('([A-Z])')
+caps = re.compile("([A-Z])")
 
 
 def pep8(name):
-    return caps.sub(lambda m: '_' + m.groups()[0].lower(), name)
+    return caps.sub(lambda m: "_" + m.groups()[0].lower(), name)
 
 
 class Dummy(unittest.TestCase):
@@ -46,10 +45,9 @@ class Dummy(unittest.TestCase):
         pass
 
 
-_t = Dummy('nop')
+_t = Dummy("nop")
 
-for at in [at for at in dir(_t)
-           if at.startswith('assert') and '_' not in at]:
+for at in [at for at in dir(_t) if at.startswith("assert") and "_" not in at]:
     pepd = pep8(at)
     vars()[pepd] = getattr(_t, at)
     __all__.append(pepd)

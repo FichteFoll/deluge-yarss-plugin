@@ -77,7 +77,6 @@ smtplib.SMTP = DummySMTP
 
 
 class YaRSS2EmailTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.config = test_common.get_test_config()
 
@@ -127,7 +126,6 @@ class YaRSS2EmailTestCase(unittest.TestCase):
 
 
 class YaRSS2TorrentEmailTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.handler = TorrentHandler(log)
         smtplib.SMTP = DummySMTP
@@ -141,24 +139,24 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
 
         self.expected_messsage = []
         self.expected_messsage.append('Content-Type: text/plain; charset="utf-8"')
-        self.expected_messsage.append('MIME-Version: 1.0')
-        self.expected_messsage.append('Content-Transfer-Encoding: base64')
+        self.expected_messsage.append("MIME-Version: 1.0")
+        self.expected_messsage.append("Content-Transfer-Encoding: base64")
         self.expected_messsage.append("Subject: %s")
         self.expected_messsage.append("From: %s")
         self.expected_messsage.append("To: %s")
 
         self.expected_messsage_multipart = []
-        self.expected_messsage_multipart.append('Content-Type: multipart/alternative;')
-        self.expected_messsage_multipart.append('MIME-Version: 1.0')
+        self.expected_messsage_multipart.append("Content-Type: multipart/alternative;")
+        self.expected_messsage_multipart.append("MIME-Version: 1.0")
         self.expected_messsage_multipart.append("Subject: %s")
         self.expected_messsage_multipart.append("From: %s")
         self.expected_messsage_multipart.append("To: %s")
         self.expected_messsage_multipart.append('Content-Type: text/plain; charset="utf-8"')
-        self.expected_messsage_multipart.append('MIME-Version: 1.0')
-        self.expected_messsage_multipart.append('Content-Transfer-Encoding: base64')
+        self.expected_messsage_multipart.append("MIME-Version: 1.0")
+        self.expected_messsage_multipart.append("Content-Transfer-Encoding: base64")
         self.expected_messsage_multipart.append('Content-Type: text/html; charset="utf-8"')
-        self.expected_messsage_multipart.append('MIME-Version: 1.0')
-        self.expected_messsage_multipart.append('Content-Transfer-Encoding: base64')
+        self.expected_messsage_multipart.append("MIME-Version: 1.0")
+        self.expected_messsage_multipart.append("Content-Transfer-Encoding: base64")
 
     def verify_email_multipart(self, email_message, email, email_config, email_data):
         """
@@ -242,6 +240,7 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
     def test_send_torrent_email_with_deferred(self):
         def callback(args):
             self.verify_email(smtp.get_emails().pop(), self.email, self.email_config)
+
         d = send_torrent_email(self.email_config, self.email, deferred=True)
         d.addCallback(callback)
         return d
@@ -249,10 +248,11 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
     def test_send_torrent_email_with_deferred_with_callback(self):
         """This test uses the callback keyword argument to add the callback
         function to the deferred"""
+
         def callback(args):
             self.verify_email(smtp.get_emails().pop(), self.email, self.email_config)
-        d = send_torrent_email(self.email_config, self.email, deferred=True,
-                               callback_func=callback)
+
+        d = send_torrent_email(self.email_config, self.email, deferred=True, callback_func=callback)
         return d
 
     def test_send_torrent_email_multipart_with_deferred(self):
@@ -271,13 +271,23 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             self.assertTrue(email_data["message_html"].find(torrent_names[1]) != -1)
 
         # Send email without deferred
-        has_sent = send_torrent_email(self.email_config, self.email,
-                                      torrent_name_list=torrent_names,
-                                      subscription_data=subscription,
-                                      deferred=False, callback_func=callback,
-                                      email_data=email_data)
+        has_sent = send_torrent_email(
+            self.email_config,
+            self.email,
+            torrent_name_list=torrent_names,
+            subscription_data=subscription,
+            deferred=False,
+            callback_func=callback,
+            email_data=email_data,
+        )
         self.assertTrue(has_sent)
         # Send email in
-        d = send_torrent_email(self.email_config, self.email, torrent_name_list=torrent_names,
-                               deferred=True, callback_func=callback, email_data=email_data)
+        d = send_torrent_email(
+            self.email_config,
+            self.email,
+            torrent_name_list=torrent_names,
+            deferred=True,
+            callback_func=callback,
+            email_data=email_data,
+        )
         return d

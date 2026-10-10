@@ -9,7 +9,6 @@ from deluge_yarss2.webui import WebUI
 
 
 class PluginInitTestCase(unittest.TestCase):
-
     def setUp(self):  # NOQA
         self.patch(PluginInitBase, "__init__", lambda self, plugin_name: None)
 

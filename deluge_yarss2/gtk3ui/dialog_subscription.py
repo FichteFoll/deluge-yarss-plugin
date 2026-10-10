@@ -27,7 +27,6 @@ from .common import Gdk, GdkPixbuf, Gtk, get_selected_combobox_key, set_tooltip_
 
 
 class DialogSubscriptionGUI:
-
     def __init__(self, editing=False, new_subscription=False):
         self.editing = editing
         self.new_subscription = new_subscription
@@ -38,28 +37,30 @@ class DialogSubscriptionGUI:
 
     def setup_gui(self):
         self.glade = Gtk.Builder.new_from_file(get_resource("dialog_subscription.ui"))
-        self.glade.connect_signals({
-            "on_txt_regex_include_changed": self.on_txt_regex_changed,
-            "on_txt_regex_exclude_changed": self.on_txt_regex_changed,
-            "on_check_regex_include_toggled": self.on_txt_regex_changed,
-            "on_check_regex_exclude_toggled": self.on_txt_regex_changed,
-            "on_button_cancel_clicked": self.on_button_cancel_clicked,
-            "on_button_destroy_clicked": self.on_button_cancel_clicked,
-            "on_button_save_clicked": self.on_button_save_subscription_clicked,
-            "on_button_add_notication_clicked": self.on_button_add_notication_clicked,
-            "on_button_remove_notication_clicked": self.on_button_remove_notication_clicked,
-            "on_rssfeed_selected": self.on_rssfeed_selected,
-            "on_button_fetch_clicked": self.on_rssfeed_selected,
-            "on_button_last_matched_reset_clicked": self.on_button_last_matched_reset_clicked,
-            "on_button_last_matched_now_clicked": self.on_button_last_matched_now_clicked,
-            "on_general_checkbox_toggled": self.on_general_checkbox_toggled,
-            "on_key_pressed": self.on_key_pressed,
-            "on_textview_custom_text_move_cursor": lambda x, y: x,
-            "on_panel_matching_move_handle": lambda x, y: x,
-            "on_dialog_subscription_response": self.on_dialog_subscription_response_signal,
-            "on_txt_filter_include_query_tooltip": self.on_txt_filter_include_query_tooltip,
-            "on_txt_filter_exclude_query_tooltip": self.on_txt_filter_exclude_query_tooltip,
-        })
+        self.glade.connect_signals(
+            {
+                "on_txt_regex_include_changed": self.on_txt_regex_changed,
+                "on_txt_regex_exclude_changed": self.on_txt_regex_changed,
+                "on_check_regex_include_toggled": self.on_txt_regex_changed,
+                "on_check_regex_exclude_toggled": self.on_txt_regex_changed,
+                "on_button_cancel_clicked": self.on_button_cancel_clicked,
+                "on_button_destroy_clicked": self.on_button_cancel_clicked,
+                "on_button_save_clicked": self.on_button_save_subscription_clicked,
+                "on_button_add_notication_clicked": self.on_button_add_notication_clicked,
+                "on_button_remove_notication_clicked": self.on_button_remove_notication_clicked,
+                "on_rssfeed_selected": self.on_rssfeed_selected,
+                "on_button_fetch_clicked": self.on_rssfeed_selected,
+                "on_button_last_matched_reset_clicked": self.on_button_last_matched_reset_clicked,
+                "on_button_last_matched_now_clicked": self.on_button_last_matched_now_clicked,
+                "on_general_checkbox_toggled": self.on_general_checkbox_toggled,
+                "on_key_pressed": self.on_key_pressed,
+                "on_textview_custom_text_move_cursor": lambda x, y: x,
+                "on_panel_matching_move_handle": lambda x, y: x,
+                "on_dialog_subscription_response": self.on_dialog_subscription_response_signal,
+                "on_txt_filter_include_query_tooltip": self.on_txt_filter_include_query_tooltip,
+                "on_txt_filter_exclude_query_tooltip": self.on_txt_filter_exclude_query_tooltip,
+            }
+        )
 
         self.dialog = self.get_object("dialog_subscription")
         self.dialog.set_title("Edit Subscription" if self.editing else "Add Subscription")
@@ -107,7 +108,7 @@ class DialogSubscriptionGUI:
                 label_labels.set_sensitive(False)
                 combobox_labels.set_sensitive(False)
                 tooltips = Gtk.Tooltips()
-                tooltips.set_tip(combobox_labels, 'Label plugin is not enabled')
+                tooltips.set_tip(combobox_labels, "Label plugin is not enabled")
             else:
                 label_labels.set_sensitive(True)
                 renderer_label = Gtk.CellRendererText()
@@ -199,9 +200,9 @@ class DialogSubscriptionGUI:
         self.matching_store = Gtk.ListStore(bool, str, str, str, CustomAttribute, str, str, int)
 
         self.matching_treeview = Gtk.TreeView(model=self.matching_store)
-        self.matching_treeview.connect('button-press-event', self.on_matches_list_button_press_event)
+        self.matching_treeview.connect("button-press-event", self.on_matches_list_button_press_event)
 
-        self.matching_treeview.connect('query-tooltip', self.on_tooltip_matches)
+        self.matching_treeview.connect("query-tooltip", self.on_tooltip_matches)
         self.matching_treeview.set_has_tooltip(True)
 
         def cell_data_func(tree_column, cell, model, tree_iter, *args):
@@ -252,29 +253,34 @@ class DialogSubscriptionGUI:
 
     def on_general_checkbox_toggled(self, button):
         self.get_object("checkbox_add_torrents_in_paused_state").set_sensitive(
-            not self.get_object("checkbox_add_torrents_in_paused_state_default").get_active())
+            not self.get_object("checkbox_add_torrents_in_paused_state_default").get_active()
+        )
         self.get_object("checkbutton_auto_managed").set_sensitive(
-            not self.get_object("checkbutton_auto_managed_default").get_active())
+            not self.get_object("checkbutton_auto_managed_default").get_active()
+        )
         self.get_object("checkbutton_sequential_download").set_sensitive(
-            not self.get_object("checkbutton_sequential_download_default").get_active())
+            not self.get_object("checkbutton_sequential_download_default").get_active()
+        )
         self.get_object("checkbutton_prioritize_first_last").set_sensitive(
-            not self.get_object("checkbutton_prioritize_first_last_default").get_active())
+            not self.get_object("checkbutton_prioritize_first_last_default").get_active()
+        )
 
     def on_button_copy_to_clipboard(self, menuitem, index):
-        text = get_value_in_selected_row(self.matching_treeview,
-                                         self.matching_store, column_index=index)
+        text = get_value_in_selected_row(self.matching_treeview, self.matching_store, column_index=index)
         if text is not None:
             Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
 
     def on_txt_filter_include_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
-        return set_tooltip_markup(tooltip,
-                                  ("Input a regex filter to match the titles to be included. "
-                                   "See YaRSS2 Wiki page for help and examples"))
+        return set_tooltip_markup(
+            tooltip,
+            ("Input a regex filter to match the titles to be included. See YaRSS2 Wiki page for help and examples"),
+        )
 
     def on_txt_filter_exclude_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
-        return set_tooltip_markup(tooltip,
-                                  ("Input a regex filter to match the titles to be excluded. "
-                                   "See YaRSS2 Wiki page for help and examples"))
+        return set_tooltip_markup(
+            tooltip,
+            ("Input a regex filter to match the titles to be excluded. See YaRSS2 Wiki page for help and examples"),
+        )
 
     def set_custom_text_tooltip(self):
         textview = self.get_object("textview_custom_text")
@@ -297,13 +303,13 @@ class DialogSubscriptionGUI:
 
         rssfeed_key = self.get_current_rssfeed_key()
         rssfeed = self.rssfeeds[rssfeed_key]
-        prefer_magnet = rssfeed['prefer_magnet']
+        prefer_magnet = rssfeed["prefer_magnet"]
 
         torrent_key = self.matching_store.get_value(it, 7)
-        magnet = self.rssfeeds_dict[torrent_key]['magnet']
-        torrent = self.rssfeeds_dict[torrent_key]['torrent']
+        magnet = self.rssfeeds_dict[torrent_key]["magnet"]
+        torrent = self.rssfeeds_dict[torrent_key]["torrent"]
 
-        tooltip_text = (f"<b>Title:</b> {html.escape(title)}\n<b>Published:</b> {published}")
+        tooltip_text = f"<b>Title:</b> {html.escape(title)}\n<b>Published:</b> {published}"
 
         def add_html_tag(text, tag, add=True):
             if add is False:
@@ -360,9 +366,9 @@ class DialogSubscriptionGUI:
             hpaned.set_position(int(max_pos * 0.75))
         matching_window.show_all()
 
-################
-# Notifications
-################
+    ################
+    # Notifications
+    ################
 
     def on_notification_list_clicked(self, event=None, a=None, col=None):
         """Callback for when the checkboxes (or actually just the row)
@@ -388,11 +394,12 @@ class DialogSubscriptionGUI:
             # This message is already in the notifications list
             if c_key == key:
                 return
-        self.messages_list_store.append([key, self.email_messages[key]["name"],
-                                         self.email_messages[key]["active"], True, False])
+        self.messages_list_store.append(
+            [key, self.email_messages[key]["name"], self.email_messages[key]["active"], True, False]
+        )
 
     def get_current_notifications(self):
-        """ Retrieves the notifications from the notifications list"""
+        """Retrieves the notifications from the notifications list"""
         notifications = {}
         row_iter = self.messages_list_store.get_iter_first()
         while row_iter is not None:
@@ -400,8 +407,7 @@ class DialogSubscriptionGUI:
             # active = self.messages_list_store.get_value(row_iter, 2)
             on_added = self.messages_list_store.get_value(row_iter, 3)
             on_completed = self.messages_list_store.get_value(row_iter, 4)
-            notifications[key] = {"on_torrent_added": on_added,
-                                  "on_torrent_completed": on_completed}
+            notifications[key] = {"on_torrent_added": on_added, "on_torrent_completed": on_completed}
             # Next row
             row_iter = self.messages_list_store.iter_next(row_iter)
         return notifications
@@ -428,8 +434,13 @@ class DialogSubscriptionGUI:
         self.get_object("txt_last_matched").set_text(get_current_date_in_isoformat())
 
     def show_rssfeed_mandatory_message(self):
-        md = Gtk.MessageDialog(self.dialog, Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.INFO,
-                               Gtk.ButtonsType.CLOSE, "You must select an RSS Feed")
+        md = Gtk.MessageDialog(
+            self.dialog,
+            Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            Gtk.MessageType.INFO,
+            Gtk.ButtonsType.CLOSE,
+            "You must select an RSS Feed",
+        )
         md.run()
         md.destroy()
 
@@ -448,7 +459,7 @@ class DialogSubscriptionGUI:
         raise NotImplementedError("Should not be called")
 
     def on_txt_regex_changed(self, text_field):
-        """ Callback for when Enter is pressed in either of the regex fields """
+        """Callback for when Enter is pressed in either of the regex fields"""
         self.perform_search()
 
     def perform_search(self):
@@ -464,8 +475,7 @@ class DialogSubscriptionGUI:
         self.method_perform_rssfeed_selection()
 
     def on_button_add_torrent_clicked(self, menuitem, use_settings=False):
-        torrent_link = get_value_in_selected_row(self.matching_treeview,
-                                                 self.matching_store, column_index=3)
+        torrent_link = get_value_in_selected_row(self.matching_treeview, self.matching_store, column_index=3)
 
         self.button_add_torrent_clicked(torrent_link, use_settings)
 
@@ -492,10 +502,19 @@ class DialogSubscriptionGUI:
                 if "regex_exclude_match" in rssfeeds_dict[key]:
                     attr["regex_exclude_match"] = rssfeeds_dict[key]["regex_exclude_match"]
                 custom_attributes = CustomAttribute(attributes_dict=attr)
-            updated = rssfeeds_dict[key]['updated']
-            store.append([rssfeeds_dict[key]['matches'], rssfeeds_dict[key]['title'],
-                          updated if updated else "Not available", rssfeeds_dict[key]['link'],
-                          custom_attributes, rssfeeds_dict[key]["torrent"], rssfeeds_dict[key]["magnet"], key])
+            updated = rssfeeds_dict[key]["updated"]
+            store.append(
+                [
+                    rssfeeds_dict[key]["matches"],
+                    rssfeeds_dict[key]["title"],
+                    updated if updated else "Not available",
+                    rssfeeds_dict[key]["link"],
+                    custom_attributes,
+                    rssfeeds_dict[key]["torrent"],
+                    rssfeeds_dict[key]["magnet"],
+                    key,
+                ]
+            )
 
     def get_subscription_data(self):
         name = self.get_object("txt_name").get_text()
@@ -524,8 +543,7 @@ class DialogSubscriptionGUI:
         sequential_download = self.get_object("checkbutton_sequential_download").get_active()
         prioritize_first_last = self.get_object("checkbutton_prioritize_first_last").get_active()
 
-        add_torrents_paused_default = self.get_object(
-            "checkbox_add_torrents_in_paused_state_default").get_active()
+        add_torrents_paused_default = self.get_object("checkbox_add_torrents_in_paused_state_default").get_active()
         auto_managed_default = self.get_object("checkbutton_auto_managed_default").get_active()
         sequential_download_default = self.get_object("checkbutton_sequential_download_default").get_active()
         prioritize_first_last_default = self.get_object("checkbutton_prioritize_first_last_default").get_active()
@@ -579,10 +597,8 @@ class DialogSubscriptionGUI:
         self.get_object("txt_name").set_text(subscription_data["name"])
         self.get_object("txt_regex_include").set_text(subscription_data["regex_include"])
         self.get_object("txt_regex_exclude").set_text(subscription_data["regex_exclude"])
-        self.get_object("regex_include_case").set_active(
-            not subscription_data["regex_include_ignorecase"])
-        self.get_object("regex_exclude_case").set_active(
-            not subscription_data["regex_exclude_ignorecase"])
+        self.get_object("regex_include_case").set_active(not subscription_data["regex_include_ignorecase"])
+        self.get_object("regex_exclude_case").set_active(not subscription_data["regex_exclude_ignorecase"])
 
         textbuffer = self.get_object("textview_custom_text").get_buffer()
         textbuffer.set_text(subscription_data["custom_text_lines"])
@@ -597,23 +613,23 @@ class DialogSubscriptionGUI:
         sequential_download = subscription_data["sequential_download"]
         prioritize_first_last_pieces = subscription_data["prioritize_first_last_pieces"]
 
-        self.get_object("checkbox_add_torrents_in_paused_state").set_active(
-            add_paused == GeneralSubsConf.ENABLED)
-        self.get_object("checkbutton_auto_managed").set_active(
-            auto_managed == GeneralSubsConf.ENABLED)
-        self.get_object("checkbutton_sequential_download").set_active(
-            sequential_download == GeneralSubsConf.ENABLED)
+        self.get_object("checkbox_add_torrents_in_paused_state").set_active(add_paused == GeneralSubsConf.ENABLED)
+        self.get_object("checkbutton_auto_managed").set_active(auto_managed == GeneralSubsConf.ENABLED)
+        self.get_object("checkbutton_sequential_download").set_active(sequential_download == GeneralSubsConf.ENABLED)
         self.get_object("checkbutton_prioritize_first_last").set_active(
-            prioritize_first_last_pieces == GeneralSubsConf.ENABLED)
+            prioritize_first_last_pieces == GeneralSubsConf.ENABLED
+        )
 
         self.get_object("checkbox_add_torrents_in_paused_state_default").set_active(
-            add_paused == GeneralSubsConf.DEFAULT)
-        self.get_object("checkbutton_auto_managed_default").set_active(
-            auto_managed == GeneralSubsConf.DEFAULT)
+            add_paused == GeneralSubsConf.DEFAULT
+        )
+        self.get_object("checkbutton_auto_managed_default").set_active(auto_managed == GeneralSubsConf.DEFAULT)
         self.get_object("checkbutton_sequential_download_default").set_active(
-            sequential_download == GeneralSubsConf.DEFAULT)
+            sequential_download == GeneralSubsConf.DEFAULT
+        )
         self.get_object("checkbutton_prioritize_first_last_default").set_active(
-            prioritize_first_last_pieces == GeneralSubsConf.DEFAULT)
+            prioritize_first_last_pieces == GeneralSubsConf.DEFAULT
+        )
 
         self.on_general_checkbox_toggled(None)
 
@@ -651,9 +667,9 @@ class DialogSubscriptionGUI:
         for key in subscription_data["email_notifications"].keys():
             on_added = subscription_data["email_notifications"][key]["on_torrent_added"]
             on_completed = subscription_data["email_notifications"][key]["on_torrent_completed"]
-            self.messages_list_store.append([key, email_messages[key]["name"],
-                                             email_messages[key]["active"],
-                                             on_added, on_completed])
+            self.messages_list_store.append(
+                [key, email_messages[key]["name"], email_messages[key]["active"], on_added, on_completed]
+            )
 
     def set_path_chooses_data(self, config):
         if config.get("move_completed_paths_list", None) is not None:
@@ -678,9 +694,9 @@ class DialogSubscriptionGUI:
         # Load rssfeeds into the combobox
         count = 0
         for key in sorted(rssfeeds):
-            self.rssfeeds_store.append([rssfeeds[key]["key"],
-                                        rssfeeds[key]["name"],
-                                        "({})".format(rssfeeds[key]["site"])])
+            self.rssfeeds_store.append(
+                [rssfeeds[key]["key"], rssfeeds[key]["name"], "({})".format(rssfeeds[key]["site"])]
+            )
             if key == rssfeed_key:
                 active_index = count
             count += 1
@@ -712,7 +728,6 @@ def get_viewable_result(rssfeed_parsed):
 
 
 class DialogSubscription(DialogSubscriptionGUI):
-
     def __init__(self, gtkui, logger, subscription_data, rssfeeds, email_messages, cookies):
         self.gtkUI = gtkui
         self.rssfeeds = rssfeeds
@@ -724,8 +739,10 @@ class DialogSubscription(DialogSubscriptionGUI):
         self.rssfeedhandler = RSSFeedHandler(self.log)
         # This is to make testing of the GUI possible (unit tests)
         self.method_perform_rssfeed_selection = self.perform_rssfeed_selection
-        super().__init__(editing=True if len(self.subscription_data.get("rssfeed_key", "")) != 0 else False,
-                         new_subscription="key" not in subscription_data)
+        super().__init__(
+            editing=True if len(self.subscription_data.get("rssfeed_key", "")) != 0 else False,
+            new_subscription="key" not in subscription_data,
+        )
 
     def show(self):
         self.setup(show=True)
@@ -795,8 +812,9 @@ class DialogSubscription(DialogSubscriptionGUI):
         if not self.rssfeeds_dict and not match_option_dict["custom_text_lines"]:
             return
         try:
-            matchings, message = self.rssfeedhandler.update_rssfeeds_dict_matching(self.rssfeeds_dict,
-                                                                                   options=match_option_dict)
+            matchings, message = self.rssfeedhandler.update_rssfeeds_dict_matching(
+                self.rssfeeds_dict, options=match_option_dict
+            )
             self.update_matching_feeds_store(self.rssfeeds_dict, regex_matching=True)
             label_status = self.get_object("label_status")
             if message:
@@ -805,6 +823,7 @@ class DialogSubscription(DialogSubscriptionGUI):
             label_count.set_text(f"Matching: {len(matchings.keys())}/{len(self.rssfeeds_dict.keys())}")
         except Exception:
             import traceback
+
             exc_str = traceback.format_exc()
             self.log.warning("Error when matching:" + exc_str, gtkui=True)
 
@@ -815,14 +834,14 @@ class DialogSubscription(DialogSubscriptionGUI):
         """
         site_cookies_dict = http.get_matching_cookies_dict(self.cookies, self.rssfeeds[rssfeed_key]["site"])
         user_agent = get_user_agent(rssfeed_data=self.rssfeeds[rssfeed_key])
-        return self.get_rssfeed_parsed(self.rssfeeds[rssfeed_key],
-                                       site_cookies_dict=site_cookies_dict,
-                                       user_agent=user_agent)
+        return self.get_rssfeed_parsed(
+            self.rssfeeds[rssfeed_key], site_cookies_dict=site_cookies_dict, user_agent=user_agent
+        )
 
     def get_rssfeed_parsed(self, rssfeed_data, site_cookies_dict=None, user_agent=None):
-        return client.yarss2.get_rssfeed_parsed(rssfeed_data,
-                                                site_cookies_dict=site_cookies_dict,
-                                                user_agent=user_agent)
+        return client.yarss2.get_rssfeed_parsed(
+            rssfeed_data, site_cookies_dict=site_cookies_dict, user_agent=user_agent
+        )
 
     def update_matching_view_with_rssfeed_results(self, rssfeeds_parsed):
         """Callback function, called when 'get_and_update_rssfeed_results'
@@ -848,9 +867,11 @@ class DialogSubscription(DialogSubscriptionGUI):
             exception = rssfeeds_parsed["bozo_exception"]
             label_text = str(exception)
         else:
-            message_text = "TTL value: %s" % (("{} min".format(rssfeeds_parsed["ttl"]))
-                                              if rssfeeds_parsed.get("ttl", None) is not None
-                                              else "Not available")
+            message_text = "TTL value: %s" % (
+                ("{} min".format(rssfeeds_parsed["ttl"]))
+                if rssfeeds_parsed.get("ttl", None) is not None
+                else "Not available"
+            )
             # This can sometimes be None for some effing reason
             if label_status:
                 label_text = message_text

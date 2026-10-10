@@ -8,15 +8,16 @@ import deluge.component as component
 
 
 class TestCaseDebug:
-
     def enable_twisted_debug(self):
         defer.setDebugging(True)
         import twisted.internet.base
+
         twisted.internet.base.DelayedCall.debug = True
 
     def set_unittest_maxdiff(self, value):
         self.maxDiff = value
         from .utils import assert_equal
+
         assert_equal.__self__.maxDiff = None
 
 
@@ -35,14 +36,14 @@ class BaseTestCase(unittest.TestCase):
     def setUp(self):  # NOQA: N802
         if len(component._ComponentRegistry.components) != 0:
             warnings.warn(
-                'The component._ComponentRegistry.components is not empty on test setup.\n'
-                'This is probably caused by another test that did not clean up after finishing!: '
-                f'{component._ComponentRegistry.components}'
+                "The component._ComponentRegistry.components is not empty on test setup.\n"
+                "This is probably caused by another test that did not clean up after finishing!: "
+                f"{component._ComponentRegistry.components}"
             )
         d = maybeDeferred(self.set_up)
 
         def on_setup_error(error):
-            warnings.warn(f'Error caught in test setup!\n{error.getTraceback()}')
+            warnings.warn(f"Error caught in test setup!\n{error.getTraceback()}")
             self.fail()
 
         return d.addErrback(on_setup_error)
@@ -51,7 +52,7 @@ class BaseTestCase(unittest.TestCase):
         d = maybeDeferred(self.tear_down)
 
         def on_teardown_failed(error):
-            warnings.warn(f'Error caught in test teardown!\n{error.getTraceback()}')
+            warnings.warn(f"Error caught in test teardown!\n{error.getTraceback()}")
             self.fail()
 
         def on_teardown_complete(result):

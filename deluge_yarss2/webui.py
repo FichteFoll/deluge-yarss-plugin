@@ -21,5 +21,5 @@ log = logging.getLogger(__name__)
 
 
 class WebUI(WebPluginBase):
-    scripts = [get_resource('yarss2.js')]
+    scripts = [get_resource("yarss2.js")]
     debug_scripts = scripts

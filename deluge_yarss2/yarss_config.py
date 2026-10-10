@@ -34,8 +34,7 @@ __DEFAULT_PREFS = {
 
 def get_default_user_agent():
     return (
-        f"Deluge v{common.get_deluge_version()} YaRSS2 v{common.get_version()} "
-        f"{platform.system()}/{platform.release()}"
+        f"Deluge v{common.get_deluge_version()} YaRSS2 v{common.get_version()} {platform.system()}/{platform.release()}"
     )
 
 
@@ -54,6 +53,7 @@ class YARSSConfigChangedEvent(DelugeEvent):
     """
     Emitted when the config has been changed.
     """
+
     def __init__(self, config):
         """
         :param config: the new config
@@ -62,7 +62,6 @@ class YARSSConfigChangedEvent(DelugeEvent):
 
 
 class YARSSConfig:
-
     def __init__(self, logger, config=None, core_config=None, verify_config=True):
         self.log = logger
         self.core_config = core_config
@@ -70,8 +69,9 @@ class YARSSConfig:
 
         # Prividing a config here us used for testing
         if config is None:
-            self.config = deluge.configmanager.ConfigManager(CONFIG_FILENAME, default_prefs(),
-                                                             file_version=LATEST_CONFIG_VERSION)
+            self.config = deluge.configmanager.ConfigManager(
+                CONFIG_FILENAME, default_prefs(), file_version=LATEST_CONFIG_VERSION
+            )
         if verify_config:
             self._verify_config()
 
@@ -137,8 +137,7 @@ class YARSSConfig:
                 self.config.save()
                 return self.config.config
             else:
-                raise ValueError("generic_save_config: Invalid key - "
-                                 f"Item with key {dict_key} doesn't exist")
+                raise ValueError(f"generic_save_config: Invalid key - Item with key {dict_key} doesn't exist")
         else:  # Save config
             # The entry to save does not have an item 'key'. This means it's a new entry in the config
             if "key" not in data_dict:
@@ -224,8 +223,10 @@ class YARSSConfig:
                     # Cannot insert default value, and cannot know the correct value.
                     rssfeed_key_invalid = True
                 else:
-                    self.log.warning(f"Config is missing a dictionary key: '{key}'. Inserting "
-                                     f"default value ('{str(default_config[key])}'). Affected config: {str(config)}\n")
+                    self.log.warning(
+                        f"Config is missing a dictionary key: '{key}'. Inserting "
+                        f"default value ('{str(default_config[key])}'). Affected config: {str(config)}\n"
+                    )
                     config[key] = default_config[key]
                 changed = True
             else:
@@ -244,12 +245,14 @@ class YARSSConfig:
                                 rssfeed_key_invalid = True
                         else:
                             rssfeed_key_invalid = True
-                            self.log.warning(f"The value of the dictionary key '{key}' has the wrong type! "
-                                             f"Value: '{type(default_config[key])}'. "
-                                             f"Excpected '{type(config[key])}' but found '{config[key]}'. "
-                                             f"Must be fixed manually.\nAffected config: {config}\n")
+                            self.log.warning(
+                                f"The value of the dictionary key '{key}' has the wrong type! "
+                                f"Value: '{type(default_config[key])}'. "
+                                f"Excpected '{type(config[key])}' but found '{config[key]}'. "
+                                f"Must be fixed manually.\nAffected config: {config}\n"
+                            )
                     # If default is unicode, and value is str
-                    elif (type(default_config[key]) is str and type(config[key]) is str):
+                    elif type(default_config[key]) is str and type(config[key]) is str:
                         # Ignore if default is unicode and value is an empty string,
                         # (No point in replacing empty unicode string with ascii string)
                         if config[key] != "":
@@ -288,13 +291,14 @@ class YARSSConfig:
             if rssfeed_key_invalid:
                 # Check first if the subscription has the default values. In that case, just delete it.
                 # If it has the key 'key', use that as key, else None
-                default_config = get_fresh_subscription_config(key=None if "key" not in config
-                                                               else config["key"],
-                                                               rssfeed_key=None if "rssfeed_key" not in config
-                                                               else config["rssfeed_key"])
+                default_config = get_fresh_subscription_config(
+                    key=None if "key" not in config else config["key"],
+                    rssfeed_key=None if "rssfeed_key" not in config else config["rssfeed_key"],
+                )
                 if common.dicts_equals(config, default_config):
-                    self.log.warning("Found subscription with missing rssfeed_key. "
-                                     "The subscription is empty, so it will be deleted.")
+                    self.log.warning(
+                        "Found subscription with missing rssfeed_key. The subscription is empty, so it will be deleted."
+                    )
                     for key in list(config.keys()):
                         del config[key]
                     return True
@@ -303,10 +307,13 @@ class YARSSConfig:
                     if DUMMY_RSSFEED_KEY in self.config["rssfeeds"]:
                         dummy_rssfeed = self.config["rssfeeds"][DUMMY_RSSFEED_KEY]
                     else:
-                        dummy_rssfeed = get_fresh_rssfeed_config(name="Dummy Feed (error in config was detected) "
-                                                                 "Please reassign this subscription to the correct "
-                                                                 "Feed and delete this RSS feed.",
-                                                                 active=False, key=DUMMY_RSSFEED_KEY)
+                        dummy_rssfeed = get_fresh_rssfeed_config(
+                            name="Dummy Feed (error in config was detected) "
+                            "Please reassign this subscription to the correct "
+                            "Feed and delete this RSS feed.",
+                            active=False,
+                            key=DUMMY_RSSFEED_KEY,
+                        )
                         self.config["rssfeeds"][DUMMY_RSSFEED_KEY] = dummy_rssfeed
                     invalid_rssfeed_key = "Missing" if "rssfeed_key" not in config else config["rssfeed_key"]
                     self.log.warning(
@@ -323,8 +330,9 @@ class YARSSConfig:
         else:
             level = level - 1
             for key in config_dict.keys():
-                key_diff = self._insert_missing_dict_values(config_dict[key], default_config,
-                                                            key_diff=key_diff, level=level)
+                key_diff = self._insert_missing_dict_values(
+                    config_dict[key], default_config, key_diff=key_diff, level=level
+                )
                 if not key_diff:
                     return key_diff
         return key_diff
@@ -352,6 +360,7 @@ class YARSSConfig:
                 del subscription["search"]
             if "custom_text_lines" not in subscription:
                 subscription["custom_text_lines"] = default_subscription_config["custom_text_lines"]
+
         self.run_for_each_dict_element(config["subscriptions"], update_subscription)
         return config
 
@@ -371,6 +380,7 @@ class YARSSConfig:
         def update_rssfeed(rssfeed):
             if "obey_ttl" not in rssfeed:
                 rssfeed["obey_ttl"] = default_rssfeed_config["obey_ttl"]
+
         self.run_for_each_dict_element(config["rssfeeds"], update_rssfeed)
 
         # Convert all str fields to unicode
@@ -394,6 +404,7 @@ class YARSSConfig:
                 # Replace 'last_update' with 'last_match'
                 subscription["last_match"] = subscription["last_update"]
                 del subscription["last_update"]
+
         self.run_for_each_dict_element(config["subscriptions"], update_subscription)
         return config
 
@@ -431,6 +442,7 @@ class YARSSConfig:
             for k, v in value_list:
                 value_dict[k] = v
             cookie["value"] = value_dict
+
         self.run_for_each_dict_element(config["cookies"], update_cookie)
         return config
 
@@ -488,6 +500,7 @@ class YARSSConfig:
 # Can be called from outside core
 ####################################
 
+
 def get_fresh_email_config():
     """Return the default email_configurations dictionary"""
     config_dict = {}
@@ -504,9 +517,18 @@ def get_fresh_email_config():
     return config_dict
 
 
-def get_fresh_rssfeed_config(name="", url="", site="", active=True, last_update="",
-                             update_interval=DEFAULT_UPDATE_INTERVAL, update_on_startup=False,
-                             obey_ttl=False, user_agent="", key=None):
+def get_fresh_rssfeed_config(
+    name="",
+    url="",
+    site="",
+    active=True,
+    last_update="",
+    update_interval=DEFAULT_UPDATE_INTERVAL,
+    update_on_startup=False,
+    obey_ttl=False,
+    user_agent="",
+    key=None,
+):
     """Create a new config (dictionary) for a feed"""
     config_dict = {}
     config_dict["name"] = name
@@ -524,10 +546,20 @@ def get_fresh_rssfeed_config(name="", url="", site="", active=True, last_update=
     return config_dict
 
 
-def get_fresh_subscription_config(name="", rssfeed_key="", regex_include="", regex_exclude="",
-                                  active=True, move_completed="", download_location="", last_match="",
-                                  label="", ignore_timestamp=False, key=None):
-    """Create a new config """
+def get_fresh_subscription_config(
+    name="",
+    rssfeed_key="",
+    regex_include="",
+    regex_exclude="",
+    active=True,
+    move_completed="",
+    download_location="",
+    last_match="",
+    label="",
+    ignore_timestamp=False,
+    key=None,
+):
+    """Create a new config"""
     config_dict = {}
     config_dict["rssfeed_key"] = rssfeed_key
     config_dict["regex_include"] = regex_include

@@ -1,4 +1,3 @@
-
 import os
 import shutil
 import tempfile
@@ -25,6 +24,7 @@ class TempDir:
     All files created within the directory are destroyed
 
     """
+
     def __init__(self, suffix="", prefix=None, basedir=None, name=None, clear=True, cleanup=True, id=None):
         """
         Args:
