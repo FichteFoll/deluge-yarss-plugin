@@ -10,7 +10,8 @@
 from twisted.trial import unittest
 
 import deluge_yarss2.yarss_config
-from deluge_yarss2.util import common, http
+from deluge_yarss2.util import common, feedparsing, http
+from deluge_yarss2.util.feedparsing.encodings import _parse_content_type_header
 
 
 class HTTPTestCase(unittest.TestCase):
@@ -142,6 +143,27 @@ class HTTPTestCase(unittest.TestCase):
         # HTMLParser holds back incomplete trailing data until close().
         result = http.clean_html_body("Rate limited &")
         self.assertTrue("Rate limited &" in result)
+
+    def test_convert_to_utf8_with_declared_charset(self):
+        title = u"Begriffskl\xe4rung"
+        rss = (
+            u"<?xml version='1.0'?>"
+            u"<rss><channel><title>%s</title></channel></rss>" % title
+        ).encode("ISO-8859-1")
+        http_headers = {"content-type": "text/xml; charset=ISO-8859-1"}
+        result = {}
+        converted = feedparsing.convert_to_utf8(http_headers, rss, result)
+        self.assertTrue(title.encode("utf-8") in converted)
+        self.assertEquals("ISO-8859-1", result["encoding"])
+
+    def test_parse_content_type_header_matches_cgi(self):
+        # Expected values taken from `cgi.parse_header` on Python 3.12:
+        # cgi.parse_header("TEXT/XML; charset=UTF-8") == ("TEXT/XML", {"charset": "UTF-8"})
+        # cgi.parse_header("xml") == ("xml", {})
+        self.assertEquals(
+            ("TEXT/XML", {"charset": "UTF-8"}),
+            _parse_content_type_header("TEXT/XML; charset=UTF-8"))
+        self.assertEquals(("xml", {}), _parse_content_type_header("xml"))
 
     def test_atoma_parsing(self):
         from deluge_yarss2 import atoma

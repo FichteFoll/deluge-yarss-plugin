@@ -28,9 +28,9 @@
 
 from __future__ import absolute_import, unicode_literals
 
-import cgi
 import codecs
 import re
+from email.message import Message
 
 try:
     try:
@@ -73,6 +73,22 @@ RE_XML_DECLARATION = re.compile(r'^<\?xml[^>]*?>')
 # Capture the value of the XML processing instruction's encoding attribute.
 # Example: <?xml version="1.0" encoding="utf-8"?>
 RE_XML_PI_ENCODING = re.compile(br'^<\?.*encoding=[\'"](.*?)[\'"].*\?>')
+
+
+def _parse_content_type_header(content_type):
+    '''Parse a Content-Type header into (content_type, params), like the
+    removed cgi.parse_header. The media type is returned verbatim, exactly
+    as cgi.parse_header did (case and content unchanged); only the
+    parameter keys are normalized by email.message.Message (lower-cased,
+    quotes removed).'''
+    if not content_type:
+        return '', {}
+    media_type = content_type.split(';', 1)[0].strip()
+    msg = Message()
+    msg['content-type'] = content_type
+    params = {key: value for key, value in msg.get_params()[1:] if key}
+    return media_type, params
+
 
 def convert_to_utf8(http_headers, data, result):
     '''Detect and convert the character encoding to UTF-8.
@@ -188,7 +204,7 @@ def convert_to_utf8(http_headers, data, result):
     # XML declaration encoding, and HTTP encoding, following the
     # heuristic defined in RFC 3023.
     http_content_type = http_headers.get('content-type') or ''
-    http_content_type, params = cgi.parse_header(http_content_type)
+    http_content_type, params = _parse_content_type_header(http_content_type)
     http_encoding = params.get('charset', '').replace("'", "")
     if isinstance(http_encoding, bytes_):
         http_encoding = http_encoding.decode('utf-8', 'ignore')
