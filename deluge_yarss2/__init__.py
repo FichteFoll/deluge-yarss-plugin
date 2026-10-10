@@ -30,15 +30,12 @@ log = logging.getLogger(__name__)
 # Temporary until the vendored libraries are imported without sys.path changes.
 VENDORED_LIB_DIRS = [
     "",
-    "requests",
     "dateutil",
     "defusedxml",
     "beautifulsoup/py3k",
     "atoma",
     "html5lib",
     "webencodings",
-    "urllib3/src",
-    "certifi",
 ]
 
 

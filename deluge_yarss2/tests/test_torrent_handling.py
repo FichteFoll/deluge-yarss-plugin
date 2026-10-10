@@ -9,9 +9,11 @@
 
 import datetime
 import os.path
+import pathlib
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
-import requests
 from twisted.trial import unittest
 
 from deluge.error import AddTorrentError
@@ -19,7 +21,7 @@ from deluge.error import AddTorrentError
 import deluge_yarss2.torrent_handling
 import deluge_yarss2.util.common
 from deluge_yarss2.torrent_handling import TorrentDownload, TorrentHandler
-from deluge_yarss2.util import logging
+from deluge_yarss2.util import http, logging
 from deluge_yarss2.util.common import GeneralSubsConf, read_file
 
 from . import common as test_common
@@ -85,24 +87,10 @@ def get(key):
 deluge_yarss2.torrent_handling.component = test_torrent_handling
 
 
-def get_file(url, cookies={}, headers={}, verify=True):
-
-    class Request(object):
-        pass
-    r = Request
-    try:
-        r.content = read_file(url)
-    except Exception:
-        pass
-    return r
-
-
-requests.get = get_file
-
-
 class TorrentHandlingTestCase(unittest.TestCase):
 
     def setUp(self):  # NOQA
+        self.patch(http, "fetch_url", lambda url, headers=None: read_file(url))
         self.log = log
         self.config = test_common.get_test_config()
         # get_test_config will load a new core.conf with the default values.
@@ -234,6 +222,66 @@ class TorrentHandlingTestCase(unittest.TestCase):
         handler.add_torrents(save_subscription_func, matching_torrents, self.config.get_config())
         self.assertEquals(len(saved_subscriptions), 3)
         handler.use_filedump = None
+
+class TorrentRequestHandler(BaseHTTPRequestHandler):
+    torrent_path = "/file.torrent"
+    not_found_body = b"<html><body><p>Torrent not found</p></body></html>"
+
+    def do_GET(self):  # noqa: N802
+        self.server.request_headers.append(self.headers)
+        if self.path == self.torrent_path:
+            self.send_body(200, "application/x-bittorrent", self.server.torrent_data)
+        else:
+            self.send_body(404, "text/html", self.not_found_body)
+
+    def send_body(self, code, content_type, body):
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format, *args):
+        pass
+
+
+class DownloadTorrentFileTestCase(unittest.TestCase):
+
+    def setUp(self):  # NOQA
+        filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")
+        self.torrent_data = read_file(filename)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), TorrentRequestHandler)
+        self.server.torrent_data = self.torrent_data
+        self.server.request_headers = []
+        thread = threading.Thread(target=self.server.serve_forever)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.base_url = "http://127.0.0.1:%d" % self.server.server_address[1]
+        self.handler = TorrentHandler(log)
+
+    def test_download_torrent_file(self):
+        download = self.handler.download_torrent_file(self.base_url + TorrentRequestHandler.torrent_path,
+                                                      cookies={"key1": "value1", "key2": "value2"},
+                                                      headers={"User-Agent": "yarss2-test"})
+        self.assertTrue(download.success)
+        self.assertEqual(download.filedump, self.torrent_data)
+        request_headers = self.server.request_headers.pop()
+        self.assertEqual(request_headers["User-Agent"], "yarss2-test")
+        self.assertEqual(request_headers["Cookie"], "key1=value1; key2=value2")
+
+    def test_download_torrent_file_not_found(self):
+        download = self.handler.download_torrent_file(self.base_url + "/missing.torrent")
+        self.assertFalse(download.success)
+        self.assertEqual(download.filedump, TorrentRequestHandler.not_found_body)
+
+    def test_download_torrent_file_rejects_file_url(self):
+        filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")
+        download = self.handler.download_torrent_file(pathlib.Path(filename).as_uri())
+        self.assertFalse(download.success)
+        self.assertIsNone(download.filedump)
+
 
 ####################################
 # Helper methods for test data

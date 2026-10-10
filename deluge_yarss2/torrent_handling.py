@@ -9,8 +9,6 @@
 
 import os
 
-import requests
-
 import deluge.component as component
 from deluge._libtorrent import lt
 from deluge.core.torrent import TorrentOptions
@@ -33,15 +31,12 @@ class TorrentHandler(object):
         download = TorrentDownload()
         download.url = torrent_url
         download.cookies = cookies
-        args = {"verify": False}
-        if cookies is not None:
-            args["cookies"] = cookies
-        if headers is not None:
-            args["headers"] = headers
         download.headers = headers
+        request_headers = dict(headers or {})
+        if cookies:
+            request_headers["Cookie"] = http.encode_cookie_values(cookies)
         try:
-            r = requests.get(torrent_url, **args)
-            download.filedump = r.content
+            download.filedump = http.fetch_url(torrent_url, headers=request_headers)
         except Exception as e:
             error_msg = "Failed to download torrent url: '%s'. Exception: %s" % (torrent_url, str(e))
             self.log.error(error_msg)

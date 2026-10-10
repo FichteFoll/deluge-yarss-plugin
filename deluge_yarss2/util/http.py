@@ -8,6 +8,9 @@
 #
 
 import re
+import ssl
+import urllib.error
+import urllib.request
 
 PY2 = False
 PY3 = False
@@ -50,6 +53,44 @@ def download_file(url_file_stream_or_string, site_cookies_dict=None, etag=None, 
                                       handlers, request_headers, result, timeout=timeout)
     result['content'] = feedparsing.convert_to_utf8(result['headers'], data, result)
     return result
+
+
+FETCH_URL_SCHEMES = ("http", "https")
+
+
+def check_fetch_url_scheme(url):
+    # urllib also opens file, ftp and data URLs, which must not be fetched from feed content.
+    scheme = urlparse.urlsplit(url).scheme.lower()
+    if scheme not in FETCH_URL_SCHEMES:
+        raise ValueError("Unsupported URL scheme '%s' in URL: '%s'" % (scheme, url))
+
+
+class HTTPOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        check_fetch_url_scheme(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_url(url, headers=None):
+    """Returns the response body of a GET request to an http or https url.
+
+    The body of an HTTP error response is returned as well, so that error pages can be shown to the user.
+    """
+    check_fetch_url_scheme(url)
+    # Preserves the previous `requests.get(..., verify=False)` behavior.
+    # Enabling certificate verification is a separate decision.
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), HTTPOnlyRedirectHandler)
+    request = urllib.request.Request(url, headers=headers or {})
+    try:
+        with opener.open(request) as response:
+            return response.read()
+    except urllib.error.HTTPError as e:
+        with e:
+            return e.read()
 
 
 def get_matching_cookies_dict(cookies, url):

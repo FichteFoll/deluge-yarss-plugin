@@ -48,9 +48,8 @@ dev = [
     "pytest",
     "pytest-twisted",
     "ruff",
-    # Needed by vendored libs until they are replaced, see C7/C9 of the migration.
+    # Needed by vendored libs until they are replaced, see C9 of the migration.
     "six",
-    "chardet",
 ]
 gui = ["pygobject"]
 vendor = ["vendoring==1.4.0", "pip"]
