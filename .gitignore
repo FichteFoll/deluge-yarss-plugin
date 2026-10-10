@@ -1,9 +1,10 @@
-build/*
-dist/*
-YaRSS2.egg-info/*
+*.egg-info/
+build/
+dist/
+.venv/
+__pycache__/
 *.pyc
 *.pyo
 *.bak
-.tox
 _trial_temp/
 yarss2/tests/test_dev.py

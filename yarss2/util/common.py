@@ -8,11 +8,17 @@
 #
 from __future__ import print_function
 
+import atexit
 import datetime
+import functools
+import importlib.resources
 import os
+import shutil
 import sys
+import tempfile
+from pathlib import Path, PurePosixPath
 
-import pkg_resources
+import yarss2
 
 PY2 = sys.version_info.major == 2
 PY3 = sys.version_info.major == 3
@@ -20,18 +26,13 @@ PY3 = sys.version_info.major == 3
 
 def get_version():
     """
-    Returns the program version from the egg metadata
+    Returns the plugin version
 
-    :returns: the version of Deluge
+    :returns: the version of YaRSS2
     :rtype: string
 
     """
-    return pkg_resources.require("YaRSS2")[0].version
-
-
-def is_running_from_egg():
-    egg = pkg_resources.require("YaRSS2")[0]
-    return egg.location.endswith(".egg")
+    return yarss2.__version__
 
 
 def get_deluge_version():
@@ -39,10 +40,31 @@ def get_deluge_version():
     return deluge.common.get_version()
 
 
+# Stock Deluge may import the plugin from a zipped egg,
+# but GTK and the web UI need real file paths that stay valid for the process lifetime.
+# The web UI also publishes scripts by their file name.
+# `importlib.resources.as_file` is unsuitable for this:
+# it extracts each call to a new temp file with a random name,
+# and on Python 3.11 it cannot extract directories.
+# Instead, files from a zip are extracted once,
+# keeping their relative path, into a temp dir that is removed at exit.
+@functools.cache
+def _get_extraction_dir():
+    extraction_dir = tempfile.mkdtemp(prefix="yarss2_resources_")
+    atexit.register(shutil.rmtree, extraction_dir, ignore_errors=True)
+    return Path(extraction_dir)
+
+
 def get_resource(filename, path="data"):
-    if path:
-        filename = os.path.join(path, filename)
-    return pkg_resources.resource_filename("yarss2", filename)
+    relative_path = PurePosixPath(path or "", filename)
+    resource = importlib.resources.files("yarss2").joinpath(*relative_path.parts)
+    if isinstance(resource, Path):
+        return str(resource)
+    extracted = _get_extraction_dir().joinpath(*relative_path.parts)
+    if not extracted.exists():
+        extracted.parent.mkdir(parents=True, exist_ok=True)
+        extracted.write_bytes(resource.read_bytes())
+    return str(extracted)
 
 
 def get_default_date():

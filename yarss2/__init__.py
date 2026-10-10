@@ -16,21 +16,36 @@
 #
 
 import sys
-
-import pkg_resources
+from pathlib import Path
 
 from deluge.plugins.init import PluginInitBase
 
 from yarss2.util import logging
 
+__version__ = "2.1.5"
+
 log = logging.getLogger(__name__)
 
 
+# Temporary until the vendored libraries are imported without sys.path changes.
+VENDORED_LIB_DIRS = [
+    "",
+    "requests",
+    "dateutil",
+    "defusedxml",
+    "beautifulsoup/py3k",
+    "atoma",
+    "html5lib",
+    "webencodings",
+    "urllib3/src",
+    "certifi",
+]
+
+
 def load_libs():
-    egg = pkg_resources.require("YaRSS2")[0]
-    for name in egg.get_entry_map("yarss2.libpaths"):
-        ep = egg.get_entry_info("yarss2.libpaths", name)
-        location = "%s/%s" % (egg.location, ep.module_name.replace(".", "/"))
+    include_dir = Path(__file__).parent / "include"
+    for lib_dir in VENDORED_LIB_DIRS:
+        location = str(include_dir / lib_dir)
         if location not in sys.path:
             sys.path.append(location)
         log.info("Appending to sys.path: '%s'" % location)
