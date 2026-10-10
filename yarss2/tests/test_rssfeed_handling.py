@@ -8,6 +8,8 @@
 #
 import datetime
 
+from twisted.trial import unittest
+
 import yarss2.util.common
 from yarss2 import rssfeed_handling
 from yarss2.util import common, logging
@@ -20,7 +22,7 @@ from .utils.log_utils import plugin_tests_logger_name
 log = logging.getLogger(plugin_tests_logger_name)
 
 
-class RSSFeedHandlingTestCase(TestCaseDebug):
+class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
 
     def setUp(self):  # NOQA
         self.log = log

@@ -13,7 +13,6 @@ from twisted.trial import unittest
 import deluge.component as component
 from deluge.core import rpcserver
 from deluge.core.rpcserver import DelugeRPCProtocol, RPCServer
-from deluge.tests.basetest import BaseTestCase
 from deluge.transfer import DelugeTransferProtocol
 
 import yarss2.util.common
@@ -25,7 +24,7 @@ from yarss2.yarss_config import get_user_agent
 
 from . import common as test_common
 from . import test_torrent_handling
-from .base import TestCaseDebug
+from .base import BaseTestCase, TestCaseDebug
 from .test_torrent_handling import TestComponent
 from .utils.helpers import TempDir
 from .utils.log_utils import plugin_tests_logger_name
