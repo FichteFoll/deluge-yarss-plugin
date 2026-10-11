@@ -6,6 +6,9 @@ Author: Bro <bro.development@gmail.com>
 
 Based on YaRSS by Camillo Dell'mour.
 
+This is a fork of the [original repository on Bitbucket](https://bitbucket.org/bendikro/deluge-yarss-plugin),
+created because the original is no longer maintained.
+
 ## Compatibility
 
 Deluge 2.2, both with the stock plugin loader and the importlib-based plugin loader.
