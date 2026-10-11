@@ -13,6 +13,8 @@
 # the additional special exception to link portions of this program with the OpenSSL library.
 # See LICENSE for more details.
 #
+import copy
+
 from twisted.internet import defer
 
 import deluge.component as component
@@ -44,6 +46,10 @@ class GtkUI(Gtk3PluginBase):
         self.plugins_enabled_changed("Label")
 
     def disable(self):
+        client.deregister_event_handler("YARSSConfigChangedEvent", self.cb_on_config_changed_event)
+        client.deregister_event_handler("GtkUILogMessageEvent", self.cb_on_log_message_arrived_event)
+        client.deregister_event_handler("PluginEnabledEvent", self.plugins_enabled_changed)
+        client.deregister_event_handler("PluginDisabledEvent", self.plugins_enabled_changed)
         component.get("Preferences").remove_page("YaRSS2")
         component.get("PluginManager").deregister_hook("on_apply_prefs", self.on_apply_prefs)
         component.get("PluginManager").deregister_hook("on_show_prefs", self.on_show_prefs)
@@ -778,7 +784,12 @@ class GtkUI(Gtk3PluginBase):
                 self.save_subscription(self.subscriptions[key])
             else:
                 edit_subscription_dialog = DialogSubscription(
-                    self, self.log, self.subscriptions[key], self.rssfeeds, self.email_messages, self.cookies
+                    self,
+                    self.log,
+                    copy.deepcopy(self.subscriptions[key]),
+                    self.rssfeeds,
+                    self.email_messages,
+                    self.cookies,
                 )
                 edit_subscription_dialog.show()
 
@@ -834,7 +845,7 @@ class GtkUI(Gtk3PluginBase):
                 self.rssfeeds[key]["active"] = not self.rssfeeds[key]["active"]
                 self.save_rssfeed(self.rssfeeds[key])
             else:
-                edit_rssfeed_dialog = DialogRSSFeed(self, self.rssfeeds[key])
+                edit_rssfeed_dialog = DialogRSSFeed(self, copy.deepcopy(self.rssfeeds[key]))
                 edit_rssfeed_dialog.show()
 
     def on_rssfeed_listitem_activated(self, treeview):
@@ -867,7 +878,7 @@ class GtkUI(Gtk3PluginBase):
                 self.email_messages[key]["active"] = not self.email_messages[key]["active"]
                 self.save_email_message(self.email_messages[key])
             else:
-                edit_message_dialog = DialogEmailMessage(self, self.email_messages[key])
+                edit_message_dialog = DialogEmailMessage(self, copy.deepcopy(self.email_messages[key]))
                 edit_message_dialog.show()
 
     def on_button_delete_message_clicked(self, button):
@@ -931,7 +942,7 @@ class GtkUI(Gtk3PluginBase):
                 self.cookies[key]["active"] = not self.cookies[key]["active"]
                 self.save_cookie(self.cookies[key])
             else:
-                dialog_cookie = DialogCookie(self, self.cookies[key])
+                dialog_cookie = DialogCookie(self, copy.deepcopy(self.cookies[key]))
                 dialog_cookie.show()
 
     def on_button_delete_cookie_clicked(self, button):

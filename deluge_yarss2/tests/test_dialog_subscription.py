@@ -6,6 +6,7 @@
 # See LICENSE for more details.
 #
 
+import copy
 import datetime
 import re
 from unittest import mock
@@ -21,9 +22,11 @@ import deluge.ui.client
 from deluge.error import DelugeError
 
 import deluge_yarss2.gtk3ui.dialog_subscription
+import deluge_yarss2.gtk3ui.gtkui
 import deluge_yarss2.util.common
 from deluge_yarss2 import yarss_config
 from deluge_yarss2.gtk3ui.dialog_subscription import DialogSubscription, get_viewable_result
+from deluge_yarss2.gtk3ui.gtkui import GtkUI
 from deluge_yarss2.tests import common as tests_common
 from deluge_yarss2.util import logging
 
@@ -415,3 +418,48 @@ class DialogSubscriptionTestCase(ComponentTestBase):
         torrent_link = "http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t"
         success = yield subscription_dialog.add_torrent(torrent_link, None)
         self.assertFalse(success)
+
+    @defer.inlineCallbacks
+    def test_add_torrent_and_cancel_leaves_cached_subscription_unchanged(self):
+        config = self.get_test_config()
+        cached_subscription = config["subscriptions"]["0"]
+        original_subscription = copy.deepcopy(cached_subscription)
+
+        class TestGTKUI(TestGTKUIBase):
+            def __init__(self, log):
+                TestGTKUIBase.__init__(self)
+                self.log = log
+                self.subscriptions_treeview = None
+                self.subscriptions_store = None
+                self.subscriptions = config["subscriptions"]
+                self.rssfeeds = config["rssfeeds"]
+                self.email_messages = {}
+                self.cookies = {}
+                self.added_torrents = []
+
+            def add_torrent(self, torrent_link, subscription_data):
+                self.added_torrents.append((torrent_link, subscription_data))
+                return defer.succeed({})
+
+        yield component.start()  # Necessary to avoid 'Reactor was unclean' error
+
+        gtkui = TestGTKUI(self.log)
+        with (
+            mock.patch.object(deluge_yarss2.gtk3ui.gtkui, "get_value_in_selected_row", return_value="0"),
+            mock.patch.object(DialogSubscription, "show", autospec=True) as show,
+        ):
+            GtkUI.on_button_edit_subscription_clicked(gtkui)
+        subscription_dialog = show.call_args.args[0]
+
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed") as mocked_func:
+            mocked_func.return_value = defer.succeed(None)
+            subscription_dialog.setup()
+            subscription_dialog.get_object("txt_name").set_text("Edited name")
+
+            torrent_link = "http://example.org/test.torrent"
+            subscription_dialog.button_add_torrent_clicked(torrent_link, use_settings=True)
+            with mock.patch.object(subscription_dialog, "destroy"):
+                subscription_dialog.on_button_cancel_clicked()
+
+        self.assertEqual("Edited name", gtkui.added_torrents[0][1]["name"])
+        self.assertEqual(original_subscription, cached_subscription)
