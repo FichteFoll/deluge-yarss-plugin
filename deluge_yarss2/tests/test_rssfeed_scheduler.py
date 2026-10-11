@@ -13,12 +13,14 @@ from twisted.internet.defer import Deferred, DeferredList
 from twisted.python import threadable
 from twisted.trial import unittest
 
+import deluge.component as component
 from deluge.error import DelugeError
 
 import deluge_yarss2.util.common
 import deluge_yarss2.yarss_config
 from deluge_yarss2.rssfeed_scheduler import RSSFeedRunQueue, RSSFeedScheduler
 from deluge_yarss2.util import logging
+from deluge_yarss2.yarss_config import YARSSConfigChangedEvent
 
 from . import common as test_common
 from .test_torrent_handling import TestComponent
@@ -220,6 +222,37 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         d = self.scheduler.queue_rssfeed_update(rssfeed_key="0")
         return d.addCallback(self.assertIsNone)
+
+    def test_config_changed_event_emitted_on_io_thread(self):
+        self.scheduler.disable_timers()
+        self.config.set_config(test_common.get_test_config_dict())
+
+        # The reactor registers its thread only once it runs, which trial does not do
+        self.addCleanup(setattr, threadable, "ioThread", threadable.ioThread)
+        threadable.registerAsIOThread()
+
+        config_changed_in_io_thread = []
+
+        def record_config_changed_event(event):
+            if isinstance(event, YARSSConfigChangedEvent):
+                config_changed_in_io_thread.append(threadable.isInIOThread())
+
+        event_manager = mock.Mock()
+        event_manager.emit.side_effect = record_config_changed_event
+        patcher = mock.patch.object(component, "get", return_value=event_manager)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        def add_torrents_pass(*arg):
+            pass
+
+        self.scheduler.add_torrents_func = add_torrents_pass
+
+        def verify_emitted_on_io_thread(result):
+            self.assertEqual(config_changed_in_io_thread, [True])
+
+        d = self.scheduler.queue_rssfeed_update(rssfeed_key="0")
+        return d.addCallback(verify_emitted_on_io_thread)
 
 
 class RSSFeedRunQueueTestCase(unittest.TestCase):

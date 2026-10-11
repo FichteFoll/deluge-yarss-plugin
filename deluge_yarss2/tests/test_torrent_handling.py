@@ -311,6 +311,30 @@ class TorrentHandlingTestCase(unittest.TestCase):
         mock_send_email.assert_not_called()
         self.assertTrue(any("'5'" in m and "'Sub A'" in m for m in log_messages.output))
 
+    def test_add_torrents_undated_item_keeps_last_match(self):
+        handler = TorrentHandler(self.log)
+        subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub A")
+        subscription["last_match"] = "2020-03-29T10:00:00+02:00"
+        torrent_list = [
+            {
+                "link": "http://url.com/a.torrent",
+                "title": "Torrent A",
+                "updated_datetime": None,
+                "subscription_data": subscription,
+                "torrent_download": TorrentDownload(),
+            },
+        ]
+        config = {"email_configurations": {"send_email_on_torrent_events": False}, "email_messages": {}}
+        saved_subscriptions = []
+
+        def save_subscription_func(subscription_data):
+            saved_subscriptions.append(subscription_data)
+
+        handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        self.assertEqual(subscription["last_match"], "2020-03-29T10:00:00+02:00")
+        self.assertEqual(saved_subscriptions, [])
+
     def test_add_torrent_magnet_raises_add_torrent_error(self):  # noqa: N802
         handler = TorrentHandler(self.log)
         torrent_info = {"link": "magnet:blbalba/url.magnet.link", "site_cookies_dict": {}}
