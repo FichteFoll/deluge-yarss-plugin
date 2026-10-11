@@ -160,13 +160,12 @@ def get(url, etag=None, modified=None, agent=None, referrer=None, handlers=None,
     # Test for inline user:password credentials for HTTP basic auth
     auth = None
     if base64 and not url.startswith('ftp:'):
-        urltype, rest = urllib.parse.splittype(url)
-        realhost, rest = urllib.parse.splithost(rest)
-        if realhost:
-            user_passwd, realhost = urllib.parse.splituser(realhost)
-            if user_passwd:
-                url = '%s://%s%s' % (urltype, realhost, rest)
-                auth = base64.standard_b64encode(user_passwd.encode('utf-8')).decode('ascii')
+        # urlsplit replaces the deprecated splittype/splithost/splituser.
+        parts = urllib.parse.urlsplit(url)
+        user_passwd, _, realhost = parts.netloc.rpartition('@')
+        if user_passwd:
+            url = urllib.parse.urlunsplit(parts._replace(netloc=realhost))
+            auth = base64.standard_b64encode(user_passwd.encode('utf-8')).decode('ascii')
 
     # iri support
     if not isinstance(url, bytes_):
