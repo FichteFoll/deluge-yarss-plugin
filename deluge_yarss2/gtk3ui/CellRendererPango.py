@@ -7,6 +7,7 @@
 #
 
 from .common import GObject, Gtk, Pango, PangoCairo
+from .markup import escape, highlight_match
 
 
 class CustomAttribute(GObject.GObject):
@@ -65,6 +66,17 @@ class CellRendererPango(Gtk.CellRendererText):
         layout.set_width(-1)  # Do not wrap text.
         return layout
 
+    def _build_markup(self, custom_attr):
+        text = self.get_text() or ""
+        attributes_dict = custom_attr.attributes_dict if custom_attr else None
+        if not attributes_dict:
+            return escape(text)
+        if "regex_exclude_match" in attributes_dict:
+            return highlight_match(text, attributes_dict["regex_exclude_match"], self.exclude_color_string)
+        if "regex_include_match" in attributes_dict:
+            return highlight_match(text, attributes_dict["regex_include_match"], self.include_color_string)
+        return escape(text)
+
     def do_render(self, window, widget, background_area, cell_area, expose_area, flags=None):
         """
         Args:
@@ -77,31 +89,7 @@ class CellRendererPango(Gtk.CellRendererText):
         cairo_context = window
         layout = self.get_layout(widget)
         custom_attr = self.get_property("custom")
-        markup = self.get_text()
-
-        def rgb_to_hex(rgb):
-            return "#{:02x}{:02x}{:02x}".format(*rgb)
-
-        if custom_attr and custom_attr.attributes_dict:
-            attributes_dict = custom_attr.attributes_dict
-
-            def markup_text(txt, start, end, color):
-                markuped = txt[0:start]
-                markuped += f'<span background="{color}"><b>{txt[start:end]}</b></span>'
-                markuped += txt[end:]
-                return markuped
-
-            if "regex_exclude_match" in attributes_dict:
-                start, end = attributes_dict["regex_exclude_match"]
-                color = self.exclude_color_string
-                markup = markup_text(markup, start, end, color)
-
-            elif "regex_include_match" in attributes_dict:
-                start, end = attributes_dict["regex_include_match"]
-                color = self.include_color_string
-                markup = markup_text(markup, start, end, color)
-
-        layout.set_markup(markup)
+        layout.set_markup(self._build_markup(custom_attr))
 
         # Vertically align the text
         cell_area.y += 4

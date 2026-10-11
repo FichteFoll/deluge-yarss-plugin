@@ -30,6 +30,7 @@ from .dialog_cookie import DialogCookie
 from .dialog_email_message import DialogEmailMessage
 from .dialog_rssfeed import DialogRSSFeed
 from .dialog_subscription import DialogSubscription
+from .markup import escape
 
 
 class GtkUI(Gtk3PluginBase):
@@ -880,7 +881,7 @@ class GtkUI(Gtk3PluginBase):
                 subscriptions_with_notification.append(self.subscriptions[key]["name"])
         # Any subscriptions that use this message?
         if subscriptions_with_notification:
-            subscription_titles = "".join([f"* {title}\n" for title in subscriptions_with_notification])
+            subscription_titles = "".join([f"* {escape(title)}\n" for title in subscriptions_with_notification])
             md = Gtk.MessageDialog(
                 component.get("Preferences").pref_dialog,
                 Gtk.DialogFlags.DESTROY_WITH_PARENT,
