@@ -17,6 +17,20 @@ so these issues are no longer available.
 * Replaced requests and BeautifulSoup with the Python standard library
 * Refreshed the vendored third-party libraries
 * Reduced the log output for unreachable RSS feeds from a stacktrace to a single warning
+* Fixed email notifications sending the torrents of another notification when several notifications fired in the same run
+* Fixed a refused magnet link aborting the remaining matched torrents
+* Fixed labels not being applied to torrents added from magnet links
+* Fixed invalid torrent files still being passed to Deluge
+* Fixed the sequential download option being applied only when auto-managed was also set
+* Fixed torrent downloads blocking the Deluge daemon without a timeout; they now time out after 30 seconds
+* Torrent download errors now name the HTTP status instead of a misleading "Unable to decode torrent file"
+* Torrent downloads now verify TLS certificates against the system's default CA store
+* Added a per-feed option to skip TLS certificate verification, for trackers with self-signed certificates
+* Cookies are now matched to sites by hostname instead of substring; partial site names such as `example` no longer match `tracker.example.org`
+* Fixed a TTL warning being logged on every update of feeds without a TTL
+* Recognized B, KB, KiB, MiB, GiB, TB and TiB sizes in item descriptions, interpreted as binary and reported in KiB/MiB/GiB/TiB like the Deluge client
+* The warning for unparsable dates now includes the parse error detail
+* Several fixes were ported from the TSA3000 and trasherdk forks
 
 ## v2.1.5 - 2021-03-21
 
