@@ -227,6 +227,61 @@ class TorrentHandlingTestCase(unittest.TestCase):
         self.assertEqual(len(saved_subscriptions), 3)
         handler.use_filedump = None
 
+    def test_add_torrents_sends_each_notification_with_its_own_data(self):
+        handler = TorrentHandler(self.log)
+
+        subscription_a = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub A")
+        subscription_a["email_notifications"] = {"0": {"on_torrent_added": True, "on_torrent_completed": False}}
+        subscription_b = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub B")
+        subscription_b["email_notifications"] = {"1": {"on_torrent_added": True, "on_torrent_completed": False}}
+
+        torrent_list = [
+            {
+                "link": "http://url.com/a.torrent",
+                "title": "Torrent A",
+                "updated_datetime": None,
+                "subscription_data": subscription_a,
+                "torrent_download": TorrentDownload(),
+            },
+            {
+                "link": "http://url.com/b.torrent",
+                "title": "Torrent B",
+                "updated_datetime": None,
+                "subscription_data": subscription_b,
+                "torrent_download": TorrentDownload(),
+            },
+        ]
+
+        message_a = deluge_yarss2.yarss_config.get_fresh_message_config()
+        message_a["name"] = "0"
+        message_a["active"] = True
+        message_b = deluge_yarss2.yarss_config.get_fresh_message_config()
+        message_b["name"] = "1"
+        message_b["active"] = True
+        config = {
+            "email_configurations": {"send_email_on_torrent_events": True},
+            "email_messages": {"0": message_a, "1": message_b},
+        }
+
+        def save_subscription_func(subscription_data):
+            pass
+
+        with (
+            self.assertLogs(plugin_tests_logger_name, level="INFO") as log_messages,
+            mock.patch.object(deluge_yarss2.torrent_handling, "send_torrent_email") as mock_send_email,
+        ):
+            handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        self.assertEqual(mock_send_email.call_count, 2)
+        sent_by_message_name = {call.args[1]["name"]: call for call in mock_send_email.call_args_list}
+        self.assertEqual(sent_by_message_name["0"].kwargs["subscription_data"], subscription_a)
+        self.assertEqual(sent_by_message_name["0"].kwargs["torrent_name_list"], ["Torrent A"])
+        self.assertEqual(sent_by_message_name["1"].kwargs["subscription_data"], subscription_b)
+        self.assertEqual(sent_by_message_name["1"].kwargs["torrent_name_list"], ["Torrent B"])
+
+        self.assertTrue(any("Successfully added torrent 'Torrent A'" in m for m in log_messages.output))
+        self.assertTrue(any("Successfully added torrent 'Torrent B'" in m for m in log_messages.output))
+
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):
     torrent_path = "/file.torrent"

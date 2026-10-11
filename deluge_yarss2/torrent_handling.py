@@ -181,7 +181,7 @@ class TorrentHandler:
             if not torrent_download.success:
                 self.log.warning(f"Failed to add torrent '{torrent_match['title']}' from url '{torrent_match['link']}'")
             else:
-                self.log.info("Succesfully added torrent '{}'.".format(torrent_match["title"]))
+                self.log.info("Successfully added torrent '{}'.".format(torrent_match["title"]))
                 # Update subscription with date
                 torrent_time = torrent_match["updated_datetime"]
 
@@ -196,15 +196,16 @@ class TorrentHandler:
                     save_subscription_func(subscription_data=torrent_match["subscription_data"])
 
                 # Handle email notification
-                # key is the dictionary key used in the email_messages config.
-                for key in torrent_match["subscription_data"]["email_notifications"].keys():
+                # notification_key is the dictionary key used in the email_messages config.
+                email_notifications = torrent_match["subscription_data"]["email_notifications"]
+                for notification_key in email_notifications.keys():
                     # Must be enabled in the subscription
-                    if not torrent_match["subscription_data"]["email_notifications"][key]["on_torrent_added"]:
+                    if not email_notifications[notification_key]["on_torrent_added"]:
                         continue
-                    if key not in torrent_names:
-                        torrent_names[key] = (torrent_match["subscription_data"], [])
+                    if notification_key not in torrent_names:
+                        torrent_names[notification_key] = (torrent_match["subscription_data"], [])
                     # Add the torrent file to the list of files for this notification.
-                    torrent_names[key][1].append(torrent_match["title"])
+                    torrent_names[notification_key][1].append(torrent_match["title"])
         if config["email_configurations"]["send_email_on_torrent_events"] is False:
             return
 
@@ -216,8 +217,8 @@ class TorrentHandler:
             send_torrent_email(
                 config["email_configurations"],
                 config["email_messages"][email_key],
-                subscription_data=torrent_names[key][0],
-                torrent_name_list=torrent_names[key][1],
+                subscription_data=torrent_names[email_key][0],
+                torrent_name_list=torrent_names[email_key][1],
                 deferred=True,
             )
 
