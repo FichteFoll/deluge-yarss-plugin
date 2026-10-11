@@ -16,7 +16,7 @@
 
 from deluge.plugins.init import PluginInitBase
 
-__version__ = "2.1.5"
+__version__ = "2.10.0"
 
 
 class CorePlugin(PluginInitBase):

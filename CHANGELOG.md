@@ -5,12 +5,22 @@ in the [original repository on Bitbucket](https://bitbucket.org/bendikro/deluge-
 Bitbucket has since discontinued its issue tracker,
 so these issues are no longer available.
 
-## Unreleased
+## v2.10.0 - 2026-10-11
 
 This release moves the project to GitHub
 and makes the plugin work with current versions of Python, setuptools and Deluge.
 It also contains a large number of bug fixes,
 most of which are listed in the collapsed section below.
+
+The version jumps from 2.1.5 to 2.10.0
+to set this release apart from the independent forks of the plugin,
+some of which already published versions such as 2.1.6 and 2.2.x.
+It also marks the change of maintainership,
+the move from Bitbucket to GitHub
+and the replacement of the entire build and development toolchain.
+The plugin's functionality remains largely the same
+and existing configurations keep working,
+which is why this is not a major version bump.
 
 ### Upgrade Notes
 
