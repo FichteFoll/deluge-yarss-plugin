@@ -128,6 +128,16 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         # last_update should not have changed
         self.assertEqual(old_last_update, self.rssfeeds["0"]["last_update"])
 
+    def test_rssfeed_update_handler_skips_subscription_moved_to_another_feed(self):
+        subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(rssfeed_key="1", key="0")
+        self.config.set_config({"subscriptions": {"0": subscription}})
+
+        with mock.patch.object(self.scheduler.rssfeedhandler, "fetch_feed_torrents") as fetch_feed_torrents:
+            result = self.scheduler.rssfeed_update_handler(subscription_key="0", subscription_rssfeed_key="0")
+
+        self.assertIsNone(result)
+        fetch_feed_torrents.assert_not_called()
+
     def test_rssfeed_update_handler_exception(self):
         subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(rssfeed_key="0", key="0")
         self.config.set_config({"subscriptions": {"0": subscription}})
@@ -198,7 +208,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.scheduler.add_torrents_func = lambda *args: None
         run_times = []
 
-        def run_feed(rssfeed_key=None, subscription_key=None):
+        def run_feed(rssfeed_key=None, subscription_key=None, subscription_rssfeed_key=None):
             ttl_update = (rssfeed_key, ttl_on_first_run) if ttl_on_first_run and not run_times else None
             run_times.append(clock.seconds())
             return (self.scheduler.add_torrents_func, None, [], self.config.get_config(), ttl_update)
@@ -412,10 +422,10 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         subscription_started = threading.Event()
         other_feed_started = threading.Event()
 
-        def run_feed(rssfeed_key=None, subscription_key=None):
+        def run_feed(rssfeed_key=None, subscription_key=None, subscription_rssfeed_key=None):
             if subscription_key is not None:
                 subscription_started.set()
-                events.append(("subscription", rssfeed_key, subscription_key))
+                events.append(("subscription", rssfeed_key, subscription_key, subscription_rssfeed_key))
             elif rssfeed_key == "2":
                 other_feed_started.set()
             else:
@@ -438,7 +448,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
                     ("saw other feed", True),
                     ("saw subscription", False),
                     ("feed end", "0"),
-                    ("subscription", None, "0"),
+                    ("subscription", None, "0", "0"),
                 ],
             )
 

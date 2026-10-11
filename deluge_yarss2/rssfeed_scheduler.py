@@ -88,14 +88,18 @@ class RSSFeedScheduler:
         stop_timer(self.rssfeed_timers.pop(key))
         return True
 
-    def rssfeed_update_handler_safe(self, rssfeed_key=None, subscription_key=None):
+    def rssfeed_update_handler_safe(self, rssfeed_key=None, subscription_key=None, subscription_rssfeed_key=None):
         """
         This function is called by the LoopingCall, and should avoid passing any
         raised exceptions back to the loopingcall. This is to make sure the loopingcall
         doesn't stop.
         """
         try:
-            return self.rssfeed_update_handler(rssfeed_key=rssfeed_key, subscription_key=subscription_key)
+            return self.rssfeed_update_handler(
+                rssfeed_key=rssfeed_key,
+                subscription_key=subscription_key,
+                subscription_rssfeed_key=subscription_rssfeed_key,
+            )
         except DelugeError:
             # Expected failures such as unreachable feeds, already logged where they are raised
             return None
@@ -104,13 +108,22 @@ class RSSFeedScheduler:
             exc_str = traceback.format_exc()
             self.log.warning(f"An exception was thrown by the RSS update handler. Please report this bug!\n{exc_str}")
 
-    def rssfeed_update_handler(self, rssfeed_key=None, subscription_key=None):
+    def rssfeed_update_handler(self, rssfeed_key=None, subscription_key=None, subscription_rssfeed_key=None):
         """Goes through all the feeds and runs the active ones.
         Multiple subscriptions on one RSS Feed will download the RSS feed page only once
+
+        subscription_rssfeed_key: The RSS Feed the subscription belonged to when its run was queued.
+            The run is skipped if the subscription has been moved to another RSS Feed since.
         """
         if subscription_key:
-            subscription_name = self.yarss_config.get_config()["subscriptions"][subscription_key]["name"]
-            self.log.info(f"Manually running Subscription '{subscription_name}'")
+            subscription = self.yarss_config.get_config()["subscriptions"][subscription_key]
+            if subscription_rssfeed_key is not None and subscription["rssfeed_key"] != subscription_rssfeed_key:
+                self.log.warning(
+                    f"Skipping the run of Subscription '{subscription['name']}', "
+                    "because it was moved to another RSS Feed while the run was queued."
+                )
+                return None
+            self.log.info(f"Manually running Subscription '{subscription['name']}'")
         elif rssfeed_key:
             if self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["active"] is False:
                 return
@@ -184,12 +197,14 @@ class RSSFeedScheduler:
         if subscription_key is None and rssfeed_key in self.rssfeed_timers:
             self.rssfeed_timers[rssfeed_key]["last_update"] = self.clock.seconds()
         queue_key = rssfeed_key
+        job_kwargs = {"rssfeed_key": rssfeed_key, "subscription_key": subscription_key}
         if subscription_key is not None:
             queue_key = config["subscriptions"][subscription_key]["rssfeed_key"]
+            # The job is serialized with the feed it is queued under,
+            # so it must not run on another feed that the subscription is moved to while it waits
+            job_kwargs["subscription_rssfeed_key"] = queue_key
         self.run_queue.concurrent_max = get_max_concurrent_feeds(config.get("general", {}))
-        job = functools.partial(
-            self.rssfeed_update_handler_safe, rssfeed_key=rssfeed_key, subscription_key=subscription_key
-        )
+        job = functools.partial(self.rssfeed_update_handler_safe, **job_kwargs)
         return self.run_queue.push(queue_key, job, after=self.add_torrents_callback)
 
 
