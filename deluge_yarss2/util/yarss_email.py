@@ -118,7 +118,9 @@ def send_torrent_email(
         "subject": email_msg["subject"],
         "message": email_msg["message"],
     }
-    message_html = html.escape(email_msg["message"])
+    # The template is user-configured and trusted, so it is used as is;
+    # only feed-provided torrent names and the subscription name are escaped below.
+    message_html = email_msg["message"]
 
     if subscription_data:
         subscription_title = subscription_data["name"]

@@ -392,7 +392,7 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         sent_email_data = self.record_sent_email_data()
         subscription = {"name": "Tom & Jerry"}
         self.email["subject"] = "New in $subscription_title"
-        self.email["message"] = "1 < 2 in $subscription_title:\n$torrentlist\nBye"
+        self.email["message"] = "<b>Hi</b> 1 < 2 in $subscription_title:\n$torrentlist\nBye"
 
         send_torrent_email(
             self.email_config, self.email, subscription_data=subscription, torrent_name_list=["<b>x</b>"]
@@ -400,7 +400,10 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
 
         email_data = sent_email_data[0]
         self.assertEqual(email_data["subject"], "New in Tom & Jerry")
-        self.assertEqual(email_data["message"], "1 < 2 in Tom & Jerry:\n * <b>x</b>\n\nBye")
+        self.assertEqual(email_data["message"], "<b>Hi</b> 1 < 2 in Tom & Jerry:\n * <b>x</b>\n\nBye")
+        # The template is trusted and kept as is; only feed-provided torrent names
+        # and the subscription name are escaped.
         self.assertEqual(
-            email_data["message_html"], "1 &lt; 2 in Tom &amp; Jerry:<br/><ul><li>&lt;b&gt;x&lt;/b&gt; </li></ul>Bye"
+            email_data["message_html"],
+            "<b>Hi</b> 1 < 2 in Tom &amp; Jerry:<br/><ul><li>&lt;b&gt;x&lt;/b&gt; </li></ul>Bye",
         )
