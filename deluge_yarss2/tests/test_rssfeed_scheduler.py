@@ -6,7 +6,9 @@
 # See LICENSE for more details.
 #
 
+import functools
 import threading
+import time
 from unittest import mock
 
 from twisted.internet import task
@@ -250,6 +252,9 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
     def test_set_timer_counts_new_interval_from_manual_feed_update(self):
         clock, run_times = self.run_feeds_on_clock()
+        self.config.get_config()["subscriptions"]["0"] = deluge_yarss2.yarss_config.get_fresh_subscription_config(
+            rssfeed_key="0", key="0"
+        )
         self.scheduler.set_timer("0", 2)
         clock.pump([1] * 30)
         self.scheduler.queue_rssfeed_update("0")
@@ -352,6 +357,94 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         d = self.scheduler.queue_rssfeed_update(rssfeed_key="0")
         return d.addCallback(verify_emitted_on_io_thread)
 
+    def run_feeds_meeting_each_other(self, max_concurrent_feeds, keys=("0", "1"), wait=0.5):
+        """Queues a stub run of each feed that waits for the runs of the other feeds to start.
+
+        Returns the Deferred of all runs, which fires with a dict telling for each feed
+        whether it saw the runs of all the other feeds start while it was running.
+        """
+        self.scheduler.disable_timers()
+        general_config = self.config.get_config()["general"]
+        started = {key: threading.Event() for key in keys}
+        saw_others = {}
+
+        def run_feed(rssfeed_key=None, subscription_key=None):
+            started[rssfeed_key].set()
+            others = [started[key] for key in keys if key != rssfeed_key]
+            saw_others[rssfeed_key] = all(event.wait(wait) for event in others)
+
+        self.scheduler.rssfeed_update_handler_safe = run_feed
+        deferreds = []
+        for value in max_concurrent_feeds:
+            if value is None:
+                general_config.pop("max_concurrent_feeds", None)
+            else:
+                general_config["max_concurrent_feeds"] = value
+            deferreds.append(self.scheduler.queue_rssfeed_update(keys[len(deferreds)]))
+        return DeferredList(deferreds, fireOnOneErrback=True).addCallback(lambda _: saw_others)
+
+    def test_queue_rssfeed_update_runs_feeds_in_parallel_up_to_max_concurrent_feeds(self):
+        d = self.run_feeds_meeting_each_other([2, 2], wait=5)
+        return d.addCallback(self.assertEqual, {"0": True, "1": True})
+
+    def test_queue_rssfeed_update_counts_invalid_max_concurrent_feeds_as_one(self):
+        def assert_sequential(saw_others, value):
+            self.assertEqual(saw_others, {"0": False, "1": True}, f"max_concurrent_feeds: {value!r}")
+            self.assertEqual(self.scheduler.run_queue.concurrent_max, 1)
+            self.assertIs(type(self.scheduler.run_queue.concurrent_max), int)
+
+        d = Deferred()
+        for value in [None, 0, -3, "abc", True, False]:
+            d.addCallback(lambda _, value=value: self.run_feeds_meeting_each_other([value, value]))
+            d.addCallback(assert_sequential, value)
+        d.callback(None)
+        return d
+
+    def test_queue_rssfeed_update_applies_changed_max_concurrent_feeds_to_next_push(self):
+        d = self.run_feeds_meeting_each_other([1, 2], wait=5)
+        return d.addCallback(self.assertEqual, {"0": True, "1": True})
+
+    def test_queue_rssfeed_update_serializes_subscription_run_with_its_feed(self):
+        self.scheduler.disable_timers()
+        self.config.set_config(test_common.get_test_config_dict())
+        self.config.get_config()["general"]["max_concurrent_feeds"] = 2
+        events = []
+        subscription_started = threading.Event()
+        other_feed_started = threading.Event()
+
+        def run_feed(rssfeed_key=None, subscription_key=None):
+            if subscription_key is not None:
+                subscription_started.set()
+                events.append(("subscription", rssfeed_key, subscription_key))
+            elif rssfeed_key == "2":
+                other_feed_started.set()
+            else:
+                events.append(("feed start", rssfeed_key))
+                events.append(("saw other feed", other_feed_started.wait(5)))
+                events.append(("saw subscription", subscription_started.wait(0.5)))
+                events.append(("feed end", rssfeed_key))
+
+        self.scheduler.rssfeed_update_handler_safe = run_feed
+        d_feed = self.scheduler.queue_rssfeed_update("0")
+        # Subscription "0" belongs to feed "0", so it has to wait, but must not hold up feed "2"
+        d_subscription = self.scheduler.queue_rssfeed_update(subscription_key="0")
+        d_other_feed = self.scheduler.queue_rssfeed_update("2")
+
+        def verify_serialized(_):
+            self.assertEqual(
+                events,
+                [
+                    ("feed start", "0"),
+                    ("saw other feed", True),
+                    ("saw subscription", False),
+                    ("feed end", "0"),
+                    ("subscription", None, "0"),
+                ],
+            )
+
+        deferreds = [d_feed, d_subscription, d_other_feed]
+        return DeferredList(deferreds, fireOnOneErrback=True).addCallback(verify_serialized)
+
 
 class ClockRunQueue:
     """Runs each job one second later on the clock instead of in a worker thread."""
@@ -359,8 +452,11 @@ class ClockRunQueue:
     def __init__(self, clock):
         self.clock = clock
 
-    def push(self, f, *args, **kwargs):
-        return task.deferLater(self.clock, 1, f, *args, **kwargs)
+    def push(self, key, job, after=None):
+        d = task.deferLater(self.clock, 1, job)
+        if after is not None:
+            d.addCallback(after)
+        return d
 
 
 class RSSFeedRunQueueTestCase(unittest.TestCase):
@@ -388,7 +484,7 @@ class RSSFeedRunQueueTestCase(unittest.TestCase):
         taskq = RSSFeedRunQueue()
         # Start id_count jobs
         for id in ids:
-            d = taskq.push(test_run, str(id))
+            d = taskq.push(id, functools.partial(test_run, id))
             d.addCallback(result_callback)
 
         def verify_times(arg):
@@ -414,3 +510,105 @@ class RSSFeedRunQueueTestCase(unittest.TestCase):
         # Add verify_callback_results to the deferred chain
         d_verify.chainDeferred(d_verify_callback)
         return d_verify
+
+    def test_jobs_of_different_keys_run_in_parallel(self):
+        taskq = RSSFeedRunQueue(concurrent_max=2)
+        started = {key: threading.Event() for key in ("a", "b")}
+
+        def job(key, other):
+            started[key].set()
+            return started[other].wait(5)
+
+        d_a = taskq.push("a", functools.partial(job, "a", "b"))
+        d_b = taskq.push("b", functools.partial(job, "b", "a"))
+
+        def verify_both_met(results):
+            self.assertEqual(results, [True, True])
+
+        return gather(d_a, d_b).addCallback(verify_both_met)
+
+    def test_jobs_of_same_key_never_overlap_and_do_not_block_other_keys(self):
+        taskq = RSSFeedRunQueue(concurrent_max=2)
+        events = []
+        other_key_ran = threading.Event()
+
+        def first_job():
+            events.append("a1 start")
+            events.append(("a1 saw b", other_key_ran.wait(5)))
+            events.append("a1 end")
+
+        def second_job():
+            events.append("a2 start")
+
+        def other_key_job():
+            events.append("b")
+            other_key_ran.set()
+
+        d_a1 = taskq.push("a", first_job)
+        d_a2 = taskq.push("a", second_job)
+        d_b = taskq.push("b", other_key_job)
+
+        def verify_order(_):
+            self.assertEqual(events, ["a1 start", "b", ("a1 saw b", True), "a1 end", "a2 start"])
+
+        return gather(d_a1, d_a2, d_b).addCallback(verify_order)
+
+    def test_next_job_of_key_starts_after_previous_after_returned(self):
+        taskq = RSSFeedRunQueue(concurrent_max=2)
+        events = []
+        main_thread = threading.current_thread()
+
+        def job(name):
+            events.append(name)
+            return name
+
+        def after(result):
+            self.assertEqual(threading.current_thread(), main_thread)
+            events.append(f"after {result} start")
+            # Gives a next job that started too early the time to show up in between
+            time.sleep(0.2)
+            events.append(f"after {result} end")
+            return f"{result} done"
+
+        d1 = taskq.push("a", functools.partial(job, "job1"), after=after)
+        d2 = taskq.push("a", functools.partial(job, "job2"), after=after)
+
+        def verify_order(results):
+            self.assertEqual(results, ["job1 done", "job2 done"])
+            self.assertEqual(
+                events,
+                ["job1", "after job1 start", "after job1 end", "job2", "after job2 start", "after job2 end"],
+            )
+
+        return gather(d1, d2).addCallback(verify_order)
+
+    def test_failures_propagate_and_release_key(self):
+        taskq = RSSFeedRunQueue()
+
+        def failing_job():
+            raise RuntimeError("job failed")
+
+        def failing_after(result):
+            raise ValueError("after failed")
+
+        d_job = taskq.push("a", failing_job, after=lambda result: self.fail("after must not be called"))
+        d_after = taskq.push("a", lambda: "result", after=failing_after)
+        d_next = taskq.push("a", lambda: "next")
+
+        d_job = self.assertFailure(d_job, RuntimeError)
+        d_after = self.assertFailure(d_after, ValueError)
+        d_next.addCallback(self.assertEqual, "next")
+
+        def verify_released(_):
+            self.assertEqual(taskq._running_keys, set())
+            self.assertEqual(taskq._queued, [])
+
+        return gather(d_job, d_after, d_next).addCallback(verify_released)
+
+
+def gather(*deferreds):
+    """Fires with the results of all Deferreds, or with the first failure."""
+    d = DeferredList(list(deferreds), fireOnOneErrback=True, consumeErrors=True)
+    d.addCallback(lambda results: [result for _, result in results])
+    d.addErrback(lambda failure: failure.value.subFailure)
+    return d
