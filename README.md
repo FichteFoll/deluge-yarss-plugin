@@ -28,13 +28,13 @@ Then enable it.
 
 Set up the environment with:
 
-```
+```sh
 uv sync
 ```
 
 Run the test suite with:
 
-```
+```sh
 uv run pytest
 ```
 
@@ -42,38 +42,38 @@ GUI tests need a display and GTK/GObject introspection dev packages.
 Install them with `uv sync --group gui`,
 then run them with:
 
-```
+```sh
 uv run pytest -m gui
 ```
 
 Lint and format the code with:
 
-```
+```sh
 uv run ruff check
 uv run ruff format
 ```
 
 Build the egg with:
 
-```
+```sh
 uv run scripts/build_egg.py
 ```
 
 Link the source tree into a Deluge config directory for development with:
 
-```
+```sh
 uv run scripts/dev_link.py [--config DIR]
 ```
 
 Smoke-test an egg in a throwaway daemon with:
 
-```
+```sh
 uv run scripts/smoke_test.py dist/YaRSS2-*.egg
 ```
 
 To run a throwaway daemon for manual testing:
 
-```
+```sh
 uv run deluged -c /tmp/deluge-dev -d -L debug
 ```
 
@@ -83,7 +83,7 @@ To update a vendored library,
 edit `deluge_yarss2/_vendor/vendor.txt`,
 then run:
 
-```
+```sh
 uv run --only-group vendor vendoring sync
 ```
 
