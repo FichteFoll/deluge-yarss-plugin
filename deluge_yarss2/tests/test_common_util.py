@@ -51,3 +51,10 @@ class CommonUtilTestCase(unittest.TestCase):
         self.assertTrue(first.endswith(os.path.join("data", "yarss2.js")), first)
         self.assertTrue(first_exists)
         self.assertEqual(first, second)
+
+    def test_isodate_to_datetime_unparsable_date_logs_warning(self):
+        with self.assertLogs("deluge_yarss2.util.common", "WARNING") as cm:
+            result = common.isodate_to_datetime("not a date")
+        self.assertEqual(result, common.get_default_date())
+        self.assertIn("isodate_to_datetime error", cm.output[0])
+        self.assertIn("Unknown string format", cm.output[0])

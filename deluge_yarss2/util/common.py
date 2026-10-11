@@ -107,7 +107,7 @@ def isodate_to_datetime(date_in_isoformat):
         from deluge_yarss2.util import logging
 
         log = logging.getLogger(__name__)
-        log.warning("isodate_to_datetime error:", err)
+        log.warning(f"isodate_to_datetime error: {err}")
         return get_default_date()
 
 
