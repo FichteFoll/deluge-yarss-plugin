@@ -57,7 +57,7 @@ class TestComponent:
         self.added.append(download)
         return download
 
-    def download_torrent_file(self, torrent_url, cookies=None, headers=None):
+    def download_torrent_file(self, torrent_url, cookies=None, headers=None, verify_tls=True):
         download = TorrentDownload()
         download.torrent_url = torrent_url
         download.cookies = cookies

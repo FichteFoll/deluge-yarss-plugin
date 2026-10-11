@@ -76,20 +76,28 @@ class HTTPOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch_url(url, headers=None, timeout=None):
+def get_ssl_context(verify_tls=True):
+    """Returns an SSL context that verifies certificates against the system's default CA store,
+    or one that skips certificate verification if `verify_tls` is false.
+    """
+    context = ssl.create_default_context()
+    if not verify_tls:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    return context
+
+
+def fetch_url(url, headers=None, timeout=None, verify_tls=True):
     """Returns the response body of a GET request to an http or https url.
 
     Raises `urllib.error.HTTPError` for HTTP error responses.
     Its `code` and `reason` describe the error, and its body can be read to show the error page to the user.
     `timeout` (seconds) applies to the connection and to each blocking read, `None` waits indefinitely.
+    `verify_tls` false skips the verification of the server's TLS certificate.
     """
     check_fetch_url_scheme(url)
-    # Preserves the previous `requests.get(..., verify=False)` behavior.
-    # Enabling certificate verification is a separate decision.
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), HTTPOnlyRedirectHandler)
+    https_handler = urllib.request.HTTPSHandler(context=get_ssl_context(verify_tls))
+    opener = urllib.request.build_opener(https_handler, HTTPOnlyRedirectHandler)
     request = urllib.request.Request(url, headers=headers or {})
     with opener.open(request, timeout=timeout) as response:
         return response.read()

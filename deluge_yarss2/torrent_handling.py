@@ -40,7 +40,7 @@ class TorrentHandler:
     def listen_on_torrent_finished(self, enable=True):
         component.get("EventManager").register_event_handler("TorrentFinishedEvent", self.on_torrent_finished_event)
 
-    def download_torrent_file(self, torrent_url, cookies=None, headers=None):
+    def download_torrent_file(self, torrent_url, cookies=None, headers=None, verify_tls=True):
         download = TorrentDownload()
         download.url = torrent_url
         download.cookies = cookies
@@ -49,7 +49,9 @@ class TorrentHandler:
         if cookies:
             request_headers["Cookie"] = http.encode_cookie_values(cookies)
         try:
-            download.filedump = http.fetch_url(torrent_url, headers=request_headers, timeout=TORRENT_DOWNLOAD_TIMEOUT)
+            download.filedump = http.fetch_url(
+                torrent_url, headers=request_headers, timeout=TORRENT_DOWNLOAD_TIMEOUT, verify_tls=verify_tls
+            )
         except urllib.error.HTTPError as e:
             with e:
                 try:
