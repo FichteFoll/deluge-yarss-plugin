@@ -407,7 +407,7 @@ class RSSFeedHandler:
     def handle_ttl(self, rssfeed_data, rssfeed_parsed, fetch_data):
         if rssfeed_data["obey_ttl"] is False:
             return
-        if "ttl" in rssfeed_parsed:
+        if "ttl" in rssfeed_parsed and rssfeed_parsed["ttl"] is not None:
             # Value is already TTL, so ignore
             try:
                 ttl = int(rssfeed_parsed["ttl"])

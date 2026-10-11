@@ -31,6 +31,13 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         self.rssfeedhandler = rssfeed_handling.RSSFeedHandler(self.log)
         self.set_unittest_maxdiff(None)
 
+    def test_handle_ttl_missing_value_is_treated_as_no_ttl(self):
+        rssfeed_data = {"obey_ttl": True, "name": "x", "update_interval": 60}
+        fetch_data = {}
+        self.rssfeedhandler.handle_ttl(rssfeed_data, {"ttl": None}, fetch_data)
+        self.assertNotIn("ttl", fetch_data)
+        self.assertFalse(rssfeed_data["obey_ttl"])
+
     def test_get_rssfeed_parsed(self):
         file_url = deluge_yarss2.util.common.get_resource(test_common.testdata_rssfeed_filename, path="tests/")
         rssfeed_data = {
