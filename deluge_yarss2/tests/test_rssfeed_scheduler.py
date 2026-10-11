@@ -10,6 +10,7 @@ import threading
 from unittest import mock
 
 from twisted.internet.defer import Deferred, DeferredList
+from twisted.python import threadable
 from twisted.trial import unittest
 
 from deluge.error import DelugeError
@@ -154,15 +155,29 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         self.scheduler.add_torrents_func = add_torrents_pass
 
+        # The reactor registers its thread only once it runs, which trial does not do
+        self.addCleanup(setattr, threadable, "ioThread", threadable.ioThread)
+        threadable.registerAsIOThread()
+
+        set_timer_in_io_thread = []
+        set_timer = self.scheduler.set_timer
+
+        def set_timer_recording_thread(*args, **kwargs):
+            set_timer_in_io_thread.append(threadable.isInIOThread())
+            return set_timer(*args, **kwargs)
+
+        self.scheduler.set_timer = set_timer_recording_thread
+
+        def verify_ttl_applied(result):
+            self.assertEqual(set_timer_in_io_thread, [True])
+            # Verify that update_interval of rssfeed in config was updated
+            self.assertEqual(yarss_config.get_config()["rssfeeds"]["0"]["update_interval"], 60)
+            # Verify that update_interval of the timer was updated
+            self.assertEqual(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
+
         # Run the rssfeed with key 0
-        self.scheduler.rssfeed_update_handler("0")
-
-        # Verify that update_interval of rssfeed in config was updated
-        self.assertEqual(yarss_config.get_config()["rssfeeds"]["0"]["update_interval"], 60)
-
-        # Verify that update_interval of the timer was updated
-        self.assertEqual(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
-        self.scheduler.disable_timers()
+        d = self.scheduler.queue_rssfeed_update("0")
+        return d.addCallback(verify_ttl_applied)
 
     def test_rssfeed_update_queue(self):
         """Tests that the add_torrents_func is called the correct number of times,

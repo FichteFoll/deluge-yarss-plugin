@@ -114,26 +114,12 @@ class RSSFeedScheduler:
         for torrent in matching_torrents:
             torrent["torrent_download"] = self.torrent_handler.get_torrent(torrent)
 
-        # Update TTL value?
+        ttl_update = None
         if "ttl" in fetch_result:
             # Subscription is run directly. Get RSS Feed key
             if not rssfeed_key:
                 rssfeed_key = self.yarss_config.get_config()["subscriptions"][subscription_key]["rssfeed_key"]
-            rssfeed_name = self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["name"]
-            self.log.info(
-                f"Rescheduling RSS Feed '{rssfeed_name}' with interval '{fetch_result['ttl']}' according to TTL."
-            )
-            rssfeed = self.yarss_config.get_config()["rssfeeds"][rssfeed_key]
-            # Set new interval in config
-            rssfeed["update_interval"] = fetch_result["ttl"]
-            # Reschedule timer
-            self.set_timer(rssfeed_key, fetch_result["ttl"], rssfeed["update_on_startup"])
-        # Send YARSSConfigChangedEvent to GUI with updated config.
-        try:
-            # Tests throws KeyError for EventManager when running this method, so wrap this in try/except
-            component.get("EventManager").emit(YARSSConfigChangedEvent(self.yarss_config.get_config()))
-        except KeyError:
-            pass
+            ttl_update = (rssfeed_key, fetch_result["ttl"])
 
         def save_subscription_func(subscription_data):
             self.yarss_config.generic_save_config("subscriptions", data_dict=subscription_data)
@@ -143,18 +129,35 @@ class RSSFeedScheduler:
             save_subscription_func,
             fetch_result["matching_torrents"],
             self.yarss_config.get_config(),
+            ttl_update,
         )
+
+    def apply_ttl_update(self, rssfeed_key, ttl):
+        rssfeed = self.yarss_config.get_config()["rssfeeds"][rssfeed_key]
+        self.log.info(f"Rescheduling RSS Feed '{rssfeed['name']}' with interval '{ttl}' according to TTL.")
+        rssfeed["update_interval"] = ttl
+        self.set_timer(rssfeed_key, ttl, rssfeed["update_on_startup"])
+
+    def emit_config_changed_event(self):
+        try:
+            # Tests throws KeyError for EventManager when running this method, so wrap this in try/except
+            component.get("EventManager").emit(YARSSConfigChangedEvent(self.yarss_config.get_config()))
+        except KeyError:
+            pass
 
     def add_torrents_callback(self, args):
         """
-        Called with the results from rssfeed_update_handler
-        add_torrents_func must be called on the main thread
-
+        Called on the reactor thread with the results from rssfeed_update_handler,
+        which runs in a worker thread and must not use the timers, events or torrent manager.
         """
         if args is None:
             return
-        add_torrents_func, save_subscription_func, matching_torrents, config = args
+        add_torrents_func, save_subscription_func, matching_torrents, config, ttl_update = args
         try:
+            if ttl_update:
+                self.apply_ttl_update(*ttl_update)
+            # Sends the updated config, e.g. last_update, to the GUI, even when there is nothing to add
+            self.emit_config_changed_event()
             add_torrents_func(save_subscription_func, matching_torrents, config)
         except Exception:
             # A failure here would fail the Deferred and stop the LoopingCall of the feed for good
