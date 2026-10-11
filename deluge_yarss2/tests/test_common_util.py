@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import subprocess
@@ -58,3 +59,18 @@ class CommonUtilTestCase(unittest.TestCase):
         self.assertEqual(result, common.get_default_date())
         self.assertIn("isodate_to_datetime error", cm.output[0])
         self.assertIn("Unknown string format", cm.output[0])
+
+    def test_isodate_to_datetime_keeps_utc_offset(self):
+        result = common.isodate_to_datetime("2020-03-29T10:00:00+02:00")
+        self.assertEqual(result, datetime.datetime(2020, 3, 29, 8, 0, tzinfo=datetime.UTC))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(hours=2))
+
+    def test_isodate_to_datetime_assigns_utc_to_naive_date(self):
+        result = common.isodate_to_datetime("2020-03-29T10:00:00")
+        self.assertEqual(result, datetime.datetime(2020, 3, 29, 10, 0, tzinfo=datetime.UTC))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(0))
+
+    def test_isodate_to_datetime_overflowing_date_returns_default_date(self):
+        with self.assertLogs("deluge_yarss2.util.common", "WARNING"):
+            result = common.isodate_to_datetime("9" * 30)
+        self.assertEqual(result, common.get_default_date())

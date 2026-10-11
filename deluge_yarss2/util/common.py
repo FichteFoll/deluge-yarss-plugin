@@ -102,8 +102,9 @@ def isodate_to_datetime(date_in_isoformat):
 
     try:
         dt = dateutil_parser.parse(date_in_isoformat)
-        return datetime_add_timezone(dt)
-    except ValueError as err:
+        return datetime_ensure_timezone(dt)
+    # dateutil raises OverflowError for numbers too large for a date field
+    except (ValueError, OverflowError) as err:
         from deluge_yarss2.util import logging
 
         log = logging.getLogger(__name__)
