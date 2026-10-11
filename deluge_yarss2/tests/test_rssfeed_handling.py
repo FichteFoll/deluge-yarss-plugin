@@ -222,7 +222,7 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
 
         self.assertEqual("This is the title", item0["title"])
         self.assertEqual(link, rssfeed_handling.get_item_download_link(item0))
-        self.assertEqual([(4541927915.52, "4.23 GB")], rssfeed_handling.get_download_size(item0))
+        self.assertEqual([(4541927915.52, "4.2 GiB")], rssfeed_handling.get_download_size(item0))
 
         self.assertEqual("[TORRENT] This is the title", item2["title"])
         self.assertEqual(link, rssfeed_handling.get_item_download_link(item2))
@@ -235,11 +235,11 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         size = self.rssfeedhandler.get_size(parsed_feed["items"][0])
 
         self.assertEqual(1, len(size))
-        self.assertEqual((4541927915.52, "4.23 GB"), size[0])
+        self.assertEqual((4541927915.52, "4.2 GiB"), size[0])
 
         size = self.rssfeedhandler.get_size(parsed_feed["items"][1])
         self.assertEqual(1, len(size))
-        self.assertEqual((402349096.96, "383.71 MB"), size[0])
+        self.assertEqual((402349096.96, "383.7 MiB"), size[0])
 
         size = self.rssfeedhandler.get_size(parsed_feed["items"][2])
         self.assertEqual(1, len(size))
@@ -248,7 +248,15 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         size = self.rssfeedhandler.get_size(parsed_feed["items"][3])
         self.assertEqual(2, len(size))
         self.assertEqual((14353107637), size[0])
-        self.assertEqual((13529146982.4, "12.6 GB"), size[1])
+        self.assertEqual((13529146982.4, "12.6 GiB"), size[1])
+
+    def test_parse_size(self):
+        self.assertEqual((734003200.0, "700.0 MiB"), rssfeed_handling._parse_size("Size: 700 MiB"))
+        self.assertEqual((1610612736.0, "1.5 GiB"), rssfeed_handling._parse_size("size: 1.5 gib"))
+        self.assertEqual((2199023255552.0, "2.0 TiB"), rssfeed_handling._parse_size("Size: 2 TB"))
+        self.assertEqual((524288.0, "512.0 KiB"), rssfeed_handling._parse_size("Size: 512 KB"))
+        self.assertEqual((100.0, "100 B"), rssfeed_handling._parse_size("Size: 100 B"))
+        self.assertEqual((0, None), rssfeed_handling._parse_size("No size here"))
 
     def get_default_rssfeeds_dict(self):
         match_option_dict = {}

@@ -11,28 +11,40 @@ from urllib.error import URLError
 
 import attr
 
+from deluge.common import fsize
 from deluge.error import DelugeError
 
 from deluge_yarss2.util import common, http
 from deluge_yarss2.yarss_config import get_user_agent
 
+# All K/M/G/T units are interpreted as binary (powers of 1024), matching how
+# trackers mean "GB" and how the native Deluge GTK client reports sizes.
+_SIZE_UNIT_MULTIPLIERS = {
+    "B": 1,
+    "KB": 1024,
+    "KIB": 1024,
+    "MB": 1024**2,
+    "MIB": 1024**2,
+    "GB": 1024**3,
+    "GIB": 1024**3,
+    "TB": 1024**4,
+    "TIB": 1024**4,
+}
+_SIZE_RE = re.compile(
+    r"Size:\s*(?P<size>\d+(?:\.\d+)?)\s*(?P<unit>B|KB|KiB|MB|MiB|GB|GiB|TB|TiB)\b",
+    re.IGNORECASE,
+)
+
 
 def _parse_size(string):
-    size_bytes = 0
-    size_str = None
-    exp = re.compile(r"Size:\s*(?P<size>\d+(\.\d+)?)\s?(?P<unit>GB|MB)")
-    match = exp.search(string)
-    if match:
-        groupdict = match.groupdict()
-        size = groupdict["size"]
-        unit = groupdict["unit"]
-        size_str = f"{size} {unit}"
+    match = _SIZE_RE.search(string)
+    if not match:
+        return 0, None
 
-        if unit == "GB":
-            size_bytes = float(size) * 1024 * 1024 * 1024
-        elif unit == "MB":
-            size_bytes = float(size) * 1024 * 1024
-    return size_bytes, size_str
+    size = float(match.group("size"))
+    unit = match.group("unit").upper()
+    size_bytes = size * _SIZE_UNIT_MULTIPLIERS[unit]
+    return size_bytes, fsize(size_bytes)
 
 
 def _get_size(item):
