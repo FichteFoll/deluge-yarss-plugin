@@ -107,8 +107,7 @@ class DialogSubscriptionGUI:
             if self.labels is None:
                 label_labels.set_sensitive(False)
                 combobox_labels.set_sensitive(False)
-                tooltips = Gtk.Tooltips()
-                tooltips.set_tip(combobox_labels, "Label plugin is not enabled")
+                combobox_labels.set_tooltip_text("Label plugin is not enabled")
             else:
                 label_labels.set_sensitive(True)
                 renderer_label = Gtk.CellRendererText()

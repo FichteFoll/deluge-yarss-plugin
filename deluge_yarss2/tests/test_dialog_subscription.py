@@ -182,6 +182,25 @@ class DialogSubscriptionTestCase(ComponentTestBase):
 
         return deferred.addCallback(verify_status)
 
+    def test_setup_labels_with_label_plugin_disabled(self):
+        config = self.get_test_config()
+        gtkui = TestGTKUIBase()
+        gtkui.labels = None
+        subscription_dialog = DialogSubscription(
+            gtkui,
+            self.log,  # logger
+            yarss_config.get_fresh_subscription_config(),
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
+
+        subscription_dialog.setup()
+
+        combobox_labels = subscription_dialog.get_object("combobox_labels")
+        self.assertFalse(combobox_labels.get_sensitive())
+        self.assertEqual(combobox_labels.get_tooltip_text(), "Label plugin is not enabled")
+
     def test_viewable_result_shows_page_text_of_unparsable_response(self):
         raw_result = {
             "raw_result": "Too many requests",
