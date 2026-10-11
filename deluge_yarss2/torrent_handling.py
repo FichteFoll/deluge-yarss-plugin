@@ -18,6 +18,15 @@ from deluge_yarss2.util.common import GeneralSubsConf, TorrentDownload
 from deluge_yarss2.util.yarss_email import send_torrent_email
 
 
+def get_label_plugin():
+    # Newer Deluge versions register core plugin components under their
+    # lowercased RPC name, older versions under the plugin's display name.
+    try:
+        return component.get("CorePlugin.label")
+    except KeyError:
+        return component.get("CorePlugin.Label")
+
+
 class TorrentHandler:
     def __init__(self, logger):
         self.log = logger
@@ -160,7 +169,7 @@ class TorrentHandler:
                     and subscription_data
                     and subscription_data.get("label", "")
                 ):
-                    component.get("CorePlugin.Label").set_torrent(download.torrent_id, subscription_data["label"])
+                    get_label_plugin().set_torrent(download.torrent_id, subscription_data["label"])
 
         return download
 
