@@ -10,6 +10,7 @@ import datetime
 import os.path
 import pathlib
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
@@ -90,7 +91,7 @@ deluge_yarss2.torrent_handling.component = test_torrent_handling
 
 class TorrentHandlingTestCase(unittest.TestCase):
     def setUp(self):  # NOQA
-        self.patch(http, "fetch_url", lambda url, headers=None: read_file(url))
+        self.patch(http, "fetch_url", lambda url, headers=None, **kwargs: read_file(url))
         self.log = log
         self.config = test_common.get_test_config()
         # get_test_config will load a new core.conf with the default values.
@@ -399,12 +400,28 @@ class TorrentHandlingTestCase(unittest.TestCase):
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):
     torrent_path = "/file.torrent"
+    slow_torrent_path = "/slow.torrent"
+    truncated_error_path = "/truncated-error.torrent"
+    # Bounds the wait of the slow path, so that a client without timeout fails the test instead of hanging.
+    slow_delay = 2
     not_found_body = b"<html><body><p>Torrent not found</p></body></html>"
 
     def do_GET(self):  # noqa: N802
         self.server.request_headers.append(self.headers)
         if self.path == self.torrent_path:
             self.send_body(200, "application/x-bittorrent", self.server.torrent_data)
+        elif self.path == self.slow_torrent_path:
+            # Released early on test cleanup, when the client has already given up.
+            if not self.server.release_slow.wait(timeout=self.slow_delay):
+                self.send_body(200, "application/x-bittorrent", self.server.torrent_data)
+        elif self.path == self.truncated_error_path:
+            # Announces a longer body than it sends, so that reading the error body fails.
+            self.send_response(503)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(self.not_found_body) + 100))
+            self.end_headers()
+            self.wfile.write(self.not_found_body)
+            self.close_connection = True
         else:
             self.send_body(404, "text/html", self.not_found_body)
 
@@ -426,11 +443,13 @@ class DownloadTorrentFileTestCase(unittest.TestCase):
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), TorrentRequestHandler)
         self.server.torrent_data = self.torrent_data
         self.server.request_headers = []
+        self.server.release_slow = threading.Event()
         thread = threading.Thread(target=self.server.serve_forever)
         thread.start()
         self.addCleanup(thread.join)
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
+        self.addCleanup(self.server.release_slow.set)
         self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
         self.handler = TorrentHandler(log)
 
@@ -450,6 +469,20 @@ class DownloadTorrentFileTestCase(unittest.TestCase):
         download = self.handler.download_torrent_file(self.base_url + "/missing.torrent")
         self.assertFalse(download.success)
         self.assertEqual(download.filedump, TorrentRequestHandler.not_found_body)
+        self.assertIn("404", download.error_msg)
+
+    def test_download_torrent_file_unreadable_error_body(self):
+        download = self.handler.download_torrent_file(self.base_url + TorrentRequestHandler.truncated_error_path)
+        self.assertFalse(download.success)
+        self.assertIn("503", download.error_msg)
+
+    def test_download_torrent_file_timeout(self):
+        self.patch(deluge_yarss2.torrent_handling, "TORRENT_DOWNLOAD_TIMEOUT", 0.2)
+        start = time.monotonic()
+        download = self.handler.download_torrent_file(self.base_url + TorrentRequestHandler.slow_torrent_path)
+        elapsed = time.monotonic() - start
+        self.assertLess(elapsed, 1)
+        self.assertFalse(download.success)
 
     def test_download_torrent_file_rejects_file_url(self):
         filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")

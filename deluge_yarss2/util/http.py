@@ -76,10 +76,12 @@ class HTTPOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch_url(url, headers=None):
+def fetch_url(url, headers=None, timeout=None):
     """Returns the response body of a GET request to an http or https url.
 
-    The body of an HTTP error response is returned as well, so that error pages can be shown to the user.
+    Raises `urllib.error.HTTPError` for HTTP error responses.
+    Its `code` and `reason` describe the error, and its body can be read to show the error page to the user.
+    `timeout` (seconds) applies to the connection and to each blocking read, `None` waits indefinitely.
     """
     check_fetch_url_scheme(url)
     # Preserves the previous `requests.get(..., verify=False)` behavior.
@@ -89,12 +91,8 @@ def fetch_url(url, headers=None):
     context.verify_mode = ssl.CERT_NONE
     opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), HTTPOnlyRedirectHandler)
     request = urllib.request.Request(url, headers=headers or {})
-    try:
-        with opener.open(request) as response:
-            return response.read()
-    except urllib.error.HTTPError as e:
-        with e:
-            return e.read()
+    with opener.open(request, timeout=timeout) as response:
+        return response.read()
 
 
 def get_matching_cookies_dict(cookies, url):

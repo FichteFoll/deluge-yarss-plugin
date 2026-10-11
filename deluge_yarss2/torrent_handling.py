@@ -7,6 +7,8 @@
 #
 
 import os
+import urllib.error
+from http.client import HTTPException
 
 import deluge.component as component
 from deluge._libtorrent import lt
@@ -16,6 +18,10 @@ from deluge.error import AddTorrentError
 from deluge_yarss2.util import common, http, torrentinfo
 from deluge_yarss2.util.common import GeneralSubsConf, TorrentDownload
 from deluge_yarss2.util.yarss_email import send_torrent_email
+
+# Seconds. `add_torrents` runs on the reactor thread,
+# so a torrent download without timeout can block the whole daemon.
+TORRENT_DOWNLOAD_TIMEOUT = 30
 
 
 def get_label_plugin():
@@ -43,7 +49,19 @@ class TorrentHandler:
         if cookies:
             request_headers["Cookie"] = http.encode_cookie_values(cookies)
         try:
-            download.filedump = http.fetch_url(torrent_url, headers=request_headers)
+            download.filedump = http.fetch_url(torrent_url, headers=request_headers, timeout=TORRENT_DOWNLOAD_TIMEOUT)
+        except urllib.error.HTTPError as e:
+            with e:
+                try:
+                    # Kept so that the error page can be shown to the user.
+                    download.filedump = e.read()
+                # OSError covers timeouts and connection resets, HTTPException a truncated body (IncompleteRead).
+                except (OSError, HTTPException) as read_error:
+                    self.log.warning(f"Failed to read the error response of torrent url '{torrent_url}': {read_error}")
+            error_msg = f"Failed to download torrent url: '{torrent_url}'. HTTP {e.code} {e.reason}"
+            self.log.error(error_msg)
+            download.set_error(error_msg)
+            return download
         except Exception as e:
             error_msg = f"Failed to download torrent url: '{torrent_url}'. Exception: {str(e)}"
             self.log.error(error_msg)
