@@ -9,6 +9,7 @@ import datetime
 from unittest import mock
 from urllib.error import URLError
 
+import rencode
 from twisted.trial import unittest
 
 from deluge.error import DelugeError
@@ -401,6 +402,22 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
         self.assertTrue("items" not in parsed_feed)
         self.assertTrue("too many requests" in parsed_feed["raw_result"]["raw_result"])
+
+    def test_get_rssfeed_parsed_unparsable_result_is_rpc_encodable(self):
+        file_url = deluge_yarss2.util.common.get_resource(
+            "rarbg.to.rss.too_many_requests.html", path="tests/data/feeds/"
+        )
+        rssfeed_data = {"name": "Test", "url": file_url}
+        parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
+        rencode.dumps(parsed_feed)
+        self.assertIsInstance(parsed_feed["bozo_exception"], str)
+
+    def test_get_rssfeed_parsed_feed_without_channel_is_bozo(self):
+        file_url = deluge_yarss2.util.common.get_resource("broken-no-channel.xml", path="tests/atoma/rss/")
+        rssfeed_data = {"name": "Test", "url": file_url}
+        parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
+        self.assertIsInstance(parsed_feed["bozo_exception"], str)
+        self.assertEqual(parsed_feed["raw_result"]["items"], [])
 
     def test_get_rssfeed_parsed_network_error(self):
         rssfeed_data = {"name": "Test", "url": "https://example.invalid/rss"}

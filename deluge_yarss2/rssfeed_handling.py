@@ -140,13 +140,13 @@ def fetch_and_parse_rssfeed_atom(
     try:
         atoma_result = atoma.parse_rss_bytes(result["content"])
         parsed_feeds = atoma_result_to_dict(atoma_result)
-    except atoma.FeedXMLError as err:
+    except (atoma.FeedDocumentError, atoma.FeedParseError) as err:
         readable_body = http.clean_html_body(result["content"])
         parsed_feeds["raw_result"] = readable_body
         parsed_feeds["bozo"] = 1
         parsed_feeds["feed"] = {}
         parsed_feeds["items"] = []
-        parsed_feeds["bozo_exception"] = err
+        parsed_feeds["bozo_exception"] = str(err)
 
     parsed_feeds["parser"] = "atoma"
     return parsed_feeds
