@@ -282,6 +282,90 @@ class TorrentHandlingTestCase(unittest.TestCase):
         self.assertTrue(any("Successfully added torrent 'Torrent A'" in m for m in log_messages.output))
         self.assertTrue(any("Successfully added torrent 'Torrent B'" in m for m in log_messages.output))
 
+    def test_add_torrent_magnet_raises_add_torrent_error(self):  # noqa: N802
+        handler = TorrentHandler(self.log)
+        torrent_info = {"link": "magnet:blbalba/url.magnet.link", "site_cookies_dict": {}}
+
+        with mock.patch.object(TestComponent, "add") as test_component_add:
+            test_component_add.side_effect = AddTorrentError("Torrent already in session (1).")
+            download = handler.add_torrent(torrent_info)
+        self.assertFalse(download.success)
+
+    def test_add_torrents_continues_after_magnet_refused(self):
+        handler = TorrentHandler(self.log)
+        torrent_list = [
+            {
+                "link": "magnet:blbalba/a.magnet.link",
+                "title": "Magnet A",
+                "updated_datetime": None,
+                "subscription_data": deluge_yarss2.yarss_config.get_fresh_subscription_config(),
+            },
+            {
+                "link": "magnet:blbalba/b.magnet.link",
+                "title": "Magnet B",
+                "updated_datetime": None,
+                "subscription_data": deluge_yarss2.yarss_config.get_fresh_subscription_config(),
+            },
+        ]
+
+        def save_subscription_func(subscription_data):
+            pass
+
+        config = {"email_configurations": {"send_email_on_torrent_events": False}}
+
+        original_add = TestComponent.add
+        calls = []
+
+        def add_side_effect(filedump=None, filename=None, options=None, magnet=None):
+            calls.append(magnet)
+            if len(calls) == 1:
+                raise AddTorrentError("Torrent already in session (1).")
+            return original_add(test_component, filedump=filedump, filename=filename, options=options, magnet=magnet)
+
+        with mock.patch.object(TestComponent, "add", side_effect=add_side_effect):
+            handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        self.assertEqual(len(test_component.added), 1)
+        self.assertEqual(test_component.added[0].magnet, "magnet:blbalba/b.magnet.link")
+
+    def test_add_torrent_magnet_applies_label(self):
+        handler = TorrentHandler(self.log)
+        subscription_data = deluge_yarss2.yarss_config.get_fresh_subscription_config()
+        subscription_data["label"] = "tv"
+        torrent_info = {
+            "link": "magnet:blbalba/url.magnet.link",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+        }
+
+        with (
+            mock.patch.object(TestComponent, "get_enabled_plugins", return_value=["Label"]),
+            mock.patch.object(TestComponent, "set_torrent", create=True) as mock_set_torrent,
+        ):
+            download = handler.add_torrent(torrent_info)
+
+        self.assertTrue(download.success)
+        mock_set_torrent.assert_called_once_with(download.torrent_id, "tv")
+
+    def test_add_torrent_returns_without_adding_for_invalid_torrent_file(self):
+        handler = TorrentHandler(self.log)
+        download = TorrentDownload()
+        download.success = True
+        download.filedump = b"not a torrent"
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "torrent_download": download,
+        }
+
+        with mock.patch.object(
+            deluge_yarss2.torrent_handling.torrentinfo, "TorrentInfo", side_effect=Exception("bad torrent")
+        ):
+            result = handler.add_torrent(torrent_info)
+
+        self.assertFalse(result.success)
+        self.assertEqual(test_component.added, [])
+
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):
     torrent_path = "/file.torrent"

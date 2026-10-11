@@ -140,7 +140,14 @@ class TorrentHandler:
 
         if download.is_magnet:
             self.log.info(f"Adding magnet: '{torrent_url}'")
-            download.torrent_id = component.get("TorrentManager").add(options=options, magnet=download.url)
+            try:
+                download.torrent_id = component.get("TorrentManager").add(options=options, magnet=download.url)
+            except AddTorrentError as err:
+                download.success = False
+                download.set_error(f"Failed to add magnet to Deluge: {err}")
+                self.log.warning(download.error_msg)
+            else:
+                self._apply_label(download.torrent_id, subscription_data)
         else:
             # Error occured
             if not download.success:
@@ -154,6 +161,7 @@ class TorrentHandler:
             except Exception as e:
                 download.set_error(f"Unable to open torrent file: {torrent_url}. Error: {str(e)}")
                 self.log.warning(download.error_msg)
+                return download
 
             try:
                 download.torrent_id = component.get("TorrentManager").add(
@@ -164,14 +172,17 @@ class TorrentHandler:
                 download.set_error(f"Failed to add torrent to Deluge: {str(err)}")
                 self.log.warning(download.error_msg)
             else:
-                if (
-                    "Label" in component.get("Core").get_enabled_plugins()
-                    and subscription_data
-                    and subscription_data.get("label", "")
-                ):
-                    get_label_plugin().set_torrent(download.torrent_id, subscription_data["label"])
+                self._apply_label(download.torrent_id, subscription_data)
 
         return download
+
+    def _apply_label(self, torrent_id, subscription_data):
+        if (
+            "Label" in component.get("Core").get_enabled_plugins()
+            and subscription_data
+            and subscription_data.get("label", "")
+        ):
+            get_label_plugin().set_torrent(torrent_id, subscription_data["label"])
 
     def add_torrents(self, save_subscription_func, torrent_list, config):
         torrent_names = {}
