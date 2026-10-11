@@ -195,7 +195,7 @@ def _get_entry(element: Element,
     authors = authors or default_authors or source_authors
 
     contributors = [_get_person(e)
-                    for e in root.findall('feed:contributor', ns) if e]
+                    for e in root.findall('feed:contributor', ns)]
     contributors = [c for c in contributors if c is not None]
 
     links = [_get_link(e) for e in root.findall('feed:link', ns)]
@@ -231,10 +231,10 @@ def _parse_atom(root: Element, parse_entries: bool=True) -> AtomFeed:
     title = _get_text_construct(root, 'feed:title')
     updated = get_datetime(root, 'feed:updated')
     authors = [_get_person(e)
-               for e in root.findall('feed:author', ns) if e]
+               for e in root.findall('feed:author', ns)]
     authors = [a for a in authors if a is not None]
     contributors = [_get_person(e)
-                    for e in root.findall('feed:contributor', ns) if e]
+                    for e in root.findall('feed:contributor', ns)]
     contributors = [c for c in contributors if c is not None]
     links = [_get_link(e)
              for e in root.findall('feed:link', ns)]
