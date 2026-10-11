@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -74,3 +75,34 @@ class CommonUtilTestCase(unittest.TestCase):
         with self.assertLogs("deluge_yarss2.util.common", "WARNING"):
             result = common.isodate_to_datetime("9" * 30)
         self.assertEqual(result, common.get_default_date())
+
+    def use_timezone(self, tz):
+        previous_tz = os.environ.get("TZ")
+
+        def restore_timezone():
+            if previous_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = previous_tz
+            time.tzset()
+
+        self.addCleanup(restore_timezone)
+        os.environ["TZ"] = tz
+        time.tzset()
+
+    def assert_close_to_now(self, dt):
+        self.assertLess(abs(dt - datetime.datetime.now(datetime.UTC)), datetime.timedelta(seconds=1))
+
+    def test_get_current_date_is_aware_and_denotes_now(self):
+        # POSIX zone at UTC+05:30, independent of the installed zone database
+        self.use_timezone("YST-05:30")
+        result = common.get_current_date()
+        self.assertEqual(result.utcoffset(), datetime.timedelta(hours=5, minutes=30))
+        self.assert_close_to_now(result)
+
+    def test_get_current_date_in_isoformat_parses_to_now(self):
+        self.use_timezone("YST-05:30")
+        result = common.isodate_to_datetime(common.get_current_date_in_isoformat())
+        self.assertEqual(result.utcoffset(), datetime.timedelta(hours=5, minutes=30))
+        self.assertEqual(result.microsecond, 0)
+        self.assert_close_to_now(result)

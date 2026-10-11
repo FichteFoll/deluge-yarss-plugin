@@ -68,11 +68,11 @@ def get_default_date():
 
 
 def get_current_date():
-    return datetime_add_timezone(datetime.datetime.now())
+    return datetime.datetime.now().astimezone()
 
 
 def get_current_date_in_isoformat():
-    return get_current_date().strftime("%Y-%m-%dT%H:%M:%S")
+    return get_current_date().isoformat(timespec="seconds")
 
 
 def datetime_ensure_timezone(dt):

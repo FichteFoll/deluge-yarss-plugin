@@ -411,9 +411,7 @@ class RSSFeedHandler:
         if subscription_key is None:
             # Update last_update value of the rssfeed only when rssfeed is run by the timer,
             # not when a subscription is run manually by the user.
-            # Don't need microseconds. Remove because it requires changes to the GUI to not display them
-            dt = common.get_current_date().replace(microsecond=0)
-            rssfeed_data["last_update"] = dt.isoformat()
+            rssfeed_data["last_update"] = common.get_current_date_in_isoformat()
         return fetch_data
 
     def handle_ttl(self, rssfeed_data, rssfeed_parsed, fetch_data):

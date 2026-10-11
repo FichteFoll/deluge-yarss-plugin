@@ -8,7 +8,7 @@
 
 from deluge.event import DelugeEvent
 
-from deluge_yarss2.util.common import get_current_date_in_isoformat
+from deluge_yarss2.util.common import get_current_date
 
 
 class GTKUILogger:
@@ -24,7 +24,7 @@ class GTKUILogger:
 
         def add_msg():
             buf = self.textview.get_buffer()
-            time = get_current_date_in_isoformat()
+            time = get_current_date().strftime("%Y-%m-%dT%H:%M:%S")
             msg_to_append = f"({time}): {message}"
             buf.insert(buf.get_end_iter(), msg_to_append + "\n")
 
