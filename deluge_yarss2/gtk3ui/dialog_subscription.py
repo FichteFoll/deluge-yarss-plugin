@@ -329,17 +329,18 @@ class DialogSubscriptionGUI:
         """Shows popup on selected row when right clicking"""
         if event.button == 3:
             pthinfo = treeview.get_path_at_pos(int(event.x), int(event.y))
+            if pthinfo is None:
+                return False
             it = self.matching_store.get_iter(pthinfo[0])
             link = self.matching_store.get_value(it, 3)
             if link is None:
                 return False
 
-            if pthinfo is not None:
-                path, col, cellx, celly = pthinfo
-                treeview.grab_focus()
-                treeview.set_cursor(path, col, 0)
-                self.list_popup_menu.popup(None, None, None, None, event.button, event.time)
-                self.list_popup_menu.show_all()
+            path, col, cellx, celly = pthinfo
+            treeview.grab_focus()
+            treeview.set_cursor(path, col, 0)
+            self.list_popup_menu.popup(None, None, None, None, event.button, event.time)
+            self.list_popup_menu.show_all()
             return True
 
     def set_matching_result_in_textview(self, result):

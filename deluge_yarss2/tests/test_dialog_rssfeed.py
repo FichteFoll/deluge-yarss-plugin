@@ -63,6 +63,12 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         self.assertEqual(rssfeed["name"], "Test2")
         self.assertIs(rssfeed["verify_tls"], False)
 
+    def test_create_dummy_feed(self):
+        """Opening the dummy feed (key=DUMMY_RSSFEED_KEY) must not raise"""
+        dummy = DummyClass()
+        rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config(key=deluge_yarss2.yarss_config.DUMMY_RSSFEED_KEY)
+        DialogRSSFeed(dummy, rssfeed)
+
     def test_populate_data_fields(self):
         dummy = DummyClass()
         rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()

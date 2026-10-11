@@ -65,9 +65,9 @@ class DialogRSSFeed:
             # Disable the fields field
             if "key" in self.rssfeed and self.rssfeed["key"] == deluge_yarss2.yarss_config.DUMMY_RSSFEED_KEY:
                 self.glade.get_object("txt_name").set_property("editable", False)
-                self.glade.get_object("txt_name").unset_flags(Gtk.CAN_FOCUS)
+                self.glade.get_object("txt_name").set_can_focus(False)
                 self.glade.get_object("txt_url").set_property("editable", False)
-                self.glade.get_object("txt_url").unset_flags(Gtk.CAN_FOCUS)
+                self.glade.get_object("txt_url").set_can_focus(False)
                 self.glade.get_object("spinbutton_updatetime").set_sensitive(False)
                 self.glade.get_object("checkbutton_on_startup").set_active(False)
                 self.glade.get_object("checkbutton_on_startup").set_sensitive(False)
