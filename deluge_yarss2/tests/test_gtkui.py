@@ -60,7 +60,19 @@ class GtkUITestCase(unittest.TestCase):
 
 
 @pytest.mark.gui
-class GtkUIGeneralSettingsTestCase(GtkUITestCase):
+class GtkUIGeneralSettingsTestCase(unittest.TestCase):
+    def setUp(self):  # NOQA
+        # Setting the config in the widgets triggers their signal handlers, which save to the core
+        for method in ("save_general_config", "save_email_config"):
+            patcher = mock.patch.object(GtkUI, method)
+            setattr(self, method, patcher.start())
+            self.addCleanup(patcher.stop)
+        self.gtkui = GtkUI("YaRSS2")
+        self.gtkui.create_ui()
+
+    def tearDown(self):  # NOQA
+        return component.deregister(self.gtkui)
+
     def build_config(self, max_concurrent_feeds=None):
         config = default_prefs()
         config["email_configurations"] = get_fresh_email_config()
@@ -86,13 +98,9 @@ class GtkUIGeneralSettingsTestCase(GtkUITestCase):
         spinbutton = self.gtkui.glade.get_object("spinbutton_max_concurrent_feeds")
         spinbutton.set_value(5)
 
-        with (
-            mock.patch.object(GtkUI, "save_general_config") as save_general_config,
-            mock.patch.object(GtkUI, "save_email_config"),
-        ):
-            self.gtkui.save_configuration_data()
+        self.gtkui.save_configuration_data()
 
-        saved_config = save_general_config.call_args.args[0]
+        saved_config = self.save_general_config.call_args.args[0]
         self.assertEqual(5, saved_config["max_concurrent_feeds"])
 
 
