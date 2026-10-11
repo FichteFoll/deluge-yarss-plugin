@@ -14,6 +14,7 @@ from twisted.internet.task import LoopingCall
 from twisted.python.failure import Failure
 
 import deluge.component as component
+from deluge.error import DelugeError
 
 from deluge_yarss2.rssfeed_handling import RSSFeedHandler
 from deluge_yarss2.torrent_handling import TorrentHandler
@@ -86,6 +87,9 @@ class RSSFeedScheduler:
         """
         try:
             return self.rssfeed_update_handler(rssfeed_key=rssfeed_key, subscription_key=subscription_key)
+        except DelugeError:
+            # Expected failures such as unreachable feeds, already logged where they are raised
+            return None
         except:  # noqa: E722 do not use bare 'except'
             traceback.print_exc()
             exc_str = traceback.format_exc()

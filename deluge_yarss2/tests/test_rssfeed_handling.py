@@ -6,8 +6,12 @@
 # See LICENSE for more details.
 #
 import datetime
+from unittest import mock
+from urllib.error import URLError
 
 from twisted.trial import unittest
+
+from deluge.error import DelugeError
 
 import deluge_yarss2.util.common
 from deluge_yarss2 import rssfeed_handling
@@ -369,6 +373,17 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
         self.assertTrue("items" not in parsed_feed)
         self.assertTrue("too many requests" in parsed_feed["raw_result"]["raw_result"])
+
+    def test_get_rssfeed_parsed_network_error(self):
+        rssfeed_data = {"name": "Test", "url": "https://example.invalid/rss"}
+        error = URLError(TimeoutError("The handshake operation timed out"))
+        with mock.patch.object(rssfeed_handling, "fetch_and_parse_rssfeed", side_effect=error):
+            with self.assertRaises(DelugeError) as context:
+                self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
+        self.assertEqual(
+            str(context.exception),
+            "Failed to fetch RSS Feed 'Test' from 'https://example.invalid/rss': The handshake operation timed out",
+        )
 
     # def test_test_feedparser_parse(self):
     #     #file_url = deluge_yarss2.util.common.get_resource(test_common.testdata_rssfeed_filename, path="tests/")

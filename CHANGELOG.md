@@ -16,6 +16,7 @@ Unreleased
 * Fixed compatibility with Python 3.12 and 3.13
 * Replaced requests and BeautifulSoup with the Python standard library
 * Refreshed the vendored third-party libraries
+* Reduced the log output for unreachable RSS feeds from a stacktrace to a single warning
 
 v2.1.5 - 2021-03-21
 

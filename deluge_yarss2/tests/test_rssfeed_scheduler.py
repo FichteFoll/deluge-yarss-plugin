@@ -7,9 +7,12 @@
 #
 
 import threading
+from unittest import mock
 
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.trial import unittest
+
+from deluge.error import DelugeError
 
 import deluge_yarss2.util.common
 import deluge_yarss2.yarss_config
@@ -123,6 +126,13 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.assertRaises(KeyError, self.scheduler.rssfeed_update_handler, 1)
         # Safe function should not raise exception
         self.assertFalse(self.scheduler.rssfeed_update_handler_safe(1))
+
+    def test_rssfeed_update_handler_safe_delugeerror(self):
+        error = DelugeError("Failed to fetch RSS Feed")
+        with mock.patch.object(self.scheduler.rssfeedhandler, "fetch_feed_torrents", side_effect=error):
+            with mock.patch("traceback.print_exc") as print_exc:
+                self.assertIsNone(self.scheduler.rssfeed_update_handler_safe("0"))
+        print_exc.assert_not_called()
 
     def test_ttl_value_updated(self):
         config = test_common.get_test_config_dict()

@@ -6,6 +6,7 @@
 # See LICENSE for more details.
 #
 import re
+from urllib.error import URLError
 
 import attr
 
@@ -183,6 +184,13 @@ class RSSFeedHandler:
             parsed_feed = fetch_and_parse_rssfeed(
                 rssfeed_data["url"], user_agent=user_agent, request_headers=cookie_header, timeout=10
             )
+        except OSError as e:
+            # Network failures (timeouts, refused connections, TLS errors) are not bugs,
+            # so a single line without a stacktrace suffices
+            reason = e.reason if isinstance(e, URLError) else e
+            message = f"Failed to fetch RSS Feed '{rssfeed_data['name']}' from '{rssfeed_data['url']}': {reason}"
+            self.log.warning(message)
+            raise DelugeError(message) from e
         except Exception as e:
             self.log.warning("Exception occured in feedparser: " + str(e))
             self.log.warning(
