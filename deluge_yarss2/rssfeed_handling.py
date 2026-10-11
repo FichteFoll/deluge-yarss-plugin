@@ -6,31 +6,45 @@
 # See LICENSE for more details.
 #
 import re
+import urllib.request
+from urllib.error import URLError
 
 import attr
 
+from deluge.common import fsize
 from deluge.error import DelugeError
 
 from deluge_yarss2.util import common, http
 from deluge_yarss2.yarss_config import get_user_agent
 
+# All K/M/G/T units are interpreted as binary (powers of 1024), matching how
+# trackers mean "GB" and how the native Deluge GTK client reports sizes.
+_SIZE_UNIT_MULTIPLIERS = {
+    "B": 1,
+    "KB": 1024,
+    "KIB": 1024,
+    "MB": 1024**2,
+    "MIB": 1024**2,
+    "GB": 1024**3,
+    "GIB": 1024**3,
+    "TB": 1024**4,
+    "TIB": 1024**4,
+}
+_SIZE_RE = re.compile(
+    r"Size:\s*(?P<size>\d+(?:\.\d+)?)\s*(?P<unit>B|KB|KiB|MB|MiB|GB|GiB|TB|TiB)\b",
+    re.IGNORECASE,
+)
+
 
 def _parse_size(string):
-    size_bytes = 0
-    size_str = None
-    exp = re.compile(r"Size:\s*(?P<size>\d+(\.\d+)?)\s?(?P<unit>GB|MB)")
-    match = exp.search(string)
-    if match:
-        groupdict = match.groupdict()
-        size = groupdict["size"]
-        unit = groupdict["unit"]
-        size_str = f"{size} {unit}"
+    match = _SIZE_RE.search(string)
+    if not match:
+        return 0, None
 
-        if unit == "GB":
-            size_bytes = float(size) * 1024 * 1024 * 1024
-        elif unit == "MB":
-            size_bytes = float(size) * 1024 * 1024
-    return size_bytes, size_str
+    size = float(match.group("size"))
+    unit = match.group("unit").upper()
+    size_bytes = size * _SIZE_UNIT_MULTIPLIERS[unit]
+    return size_bytes, fsize(size_bytes)
 
 
 def _get_size(item):
@@ -100,12 +114,21 @@ def atoma_result_to_dict(atoma_result):
 
 
 def fetch_and_parse_rssfeed_atom(
-    url_file_stream_or_string, site_cookies_dict=None, user_agent=None, request_headers=None, timeout=10
+    url_file_stream_or_string,
+    site_cookies_dict=None,
+    user_agent=None,
+    request_headers=None,
+    timeout=10,
+    verify_tls=True,
 ):
+    handlers = None
+    if not verify_tls:
+        handlers = [urllib.request.HTTPSHandler(context=http.get_ssl_context(verify_tls=False))]
     result = http.download_file(
         url_file_stream_or_string,
         site_cookies_dict=site_cookies_dict,
         user_agent=user_agent,
+        handlers=handlers,
         request_headers=request_headers,
         timeout=timeout,
     )
@@ -117,13 +140,13 @@ def fetch_and_parse_rssfeed_atom(
     try:
         atoma_result = atoma.parse_rss_bytes(result["content"])
         parsed_feeds = atoma_result_to_dict(atoma_result)
-    except atoma.FeedXMLError as err:
+    except (atoma.FeedDocumentError, atoma.FeedParseError) as err:
         readable_body = http.clean_html_body(result["content"])
         parsed_feeds["raw_result"] = readable_body
         parsed_feeds["bozo"] = 1
         parsed_feeds["feed"] = {}
         parsed_feeds["items"] = []
-        parsed_feeds["bozo_exception"] = err
+        parsed_feeds["bozo_exception"] = str(err)
 
     parsed_feeds["parser"] = "atoma"
     return parsed_feeds
@@ -181,8 +204,19 @@ class RSSFeedHandler:
         # Will abort after 10 seconds if server doesn't answer
         try:
             parsed_feed = fetch_and_parse_rssfeed(
-                rssfeed_data["url"], user_agent=user_agent, request_headers=cookie_header, timeout=10
+                rssfeed_data["url"],
+                user_agent=user_agent,
+                request_headers=cookie_header,
+                timeout=10,
+                verify_tls=rssfeed_data.get("verify_tls", True),
             )
+        except OSError as e:
+            # Network failures (timeouts, refused connections, TLS errors) are not bugs,
+            # so a single line without a stacktrace suffices
+            reason = e.reason if isinstance(e, URLError) else e
+            message = f"Failed to fetch RSS Feed '{rssfeed_data['name']}' from '{rssfeed_data['url']}': {reason}"
+            self.log.warning(message)
+            raise DelugeError(message) from e
         except Exception as e:
             self.log.warning("Exception occured in feedparser: " + str(e))
             self.log.warning(
@@ -377,15 +411,13 @@ class RSSFeedHandler:
         if subscription_key is None:
             # Update last_update value of the rssfeed only when rssfeed is run by the timer,
             # not when a subscription is run manually by the user.
-            # Don't need microseconds. Remove because it requires changes to the GUI to not display them
-            dt = common.get_current_date().replace(microsecond=0)
-            rssfeed_data["last_update"] = dt.isoformat()
+            rssfeed_data["last_update"] = common.get_current_date_in_isoformat()
         return fetch_data
 
     def handle_ttl(self, rssfeed_data, rssfeed_parsed, fetch_data):
         if rssfeed_data["obey_ttl"] is False:
             return
-        if "ttl" in rssfeed_parsed:
+        if "ttl" in rssfeed_parsed and rssfeed_parsed["ttl"] is not None:
             # Value is already TTL, so ignore
             try:
                 ttl = int(rssfeed_parsed["ttl"])
@@ -432,10 +464,20 @@ class RSSFeedHandler:
         last_match_dt = common.isodate_to_datetime(subscription_data["last_match"])
 
         for key in list(matches.keys()):
-            # Discard match only if timestamp is available,
-            # and the timestamp is older or equal to the last matching timestamp
-            matched_updated = common.isodate_to_datetime(matches[key]["updated"])
-            if matched_updated and last_match_dt >= matched_updated:
+            # An item without a publish date is only added when the subscription
+            # ignores timestamps; otherwise it is discarded, same as an item whose
+            # timestamp is older or equal to the last matching timestamp.
+            updated = matches[key]["updated"]
+            matched_updated = common.isodate_to_datetime(updated) if updated else None
+
+            if matched_updated is None:
+                if subscription_data["ignore_timestamp"] is not True:
+                    self.log.info(
+                        f"Not adding '{matches[key]['title']}' because it has no publish date. "
+                        'Enable "Ignore timestamp" in the subscription to add such items.'
+                    )
+                    continue
+            elif last_match_dt >= matched_updated:
                 if subscription_data["ignore_timestamp"] is True:
                     self.log.info(
                         f"Old timestamp: '{matches[key]['title']}', "
@@ -443,7 +485,6 @@ class RSSFeedHandler:
                     )
                 else:
                     self.log.info("Not adding because of old timestamp: '{}'".format(matches[key]["title"]))
-                    del matches[key]
                     continue
             fetch_data["matching_torrents"].append(
                 {
@@ -453,6 +494,7 @@ class RSSFeedHandler:
                     "site_cookies_dict": fetch_data["site_cookies_dict"],
                     "user_agent": fetch_data["user_agent"],
                     "referrer": rssfeed_data["url"],
+                    "verify_tls": rssfeed_data.get("verify_tls", True),
                     "subscription_data": subscription_data,
                 }
             )

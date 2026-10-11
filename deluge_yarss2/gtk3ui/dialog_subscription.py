@@ -107,8 +107,7 @@ class DialogSubscriptionGUI:
             if self.labels is None:
                 label_labels.set_sensitive(False)
                 combobox_labels.set_sensitive(False)
-                tooltips = Gtk.Tooltips()
-                tooltips.set_tip(combobox_labels, "Label plugin is not enabled")
+                combobox_labels.set_tooltip_text("Label plugin is not enabled")
             else:
                 label_labels.set_sensitive(True)
                 renderer_label = Gtk.CellRendererText()
@@ -329,17 +328,18 @@ class DialogSubscriptionGUI:
         """Shows popup on selected row when right clicking"""
         if event.button == 3:
             pthinfo = treeview.get_path_at_pos(int(event.x), int(event.y))
+            if pthinfo is None:
+                return False
             it = self.matching_store.get_iter(pthinfo[0])
             link = self.matching_store.get_value(it, 3)
             if link is None:
                 return False
 
-            if pthinfo is not None:
-                path, col, cellx, celly = pthinfo
-                treeview.grab_focus()
-                treeview.set_cursor(path, col, 0)
-                self.list_popup_menu.popup(None, None, None, None, event.button, event.time)
-                self.list_popup_menu.show_all()
+            path, col, cellx, celly = pthinfo
+            treeview.grab_focus()
+            treeview.set_cursor(path, col, 0)
+            self.list_popup_menu.popup(None, None, None, None, event.button, event.time)
+            self.list_popup_menu.show_all()
             return True
 
     def set_matching_result_in_textview(self, result):
@@ -719,6 +719,9 @@ class DialogSubscriptionGUI:
 
 
 def get_viewable_result(rssfeed_parsed):
+    page_text = rssfeed_parsed.get("raw_result")
+    if isinstance(page_text, str):
+        return page_text
     if "summary" not in rssfeed_parsed["feed"]:
         return ""
     cleaned = rssfeed_parsed["feed"]["summary"]
@@ -795,8 +798,13 @@ class DialogSubscription(DialogSubscriptionGUI):
     def perform_rssfeed_selection(self):
         rssfeed_key = self.get_current_rssfeed_key()
         deferred = self.get_and_update_rssfeed_results(rssfeed_key)
-        deferred.addCallback(self.update_matching_view_with_rssfeed_results)
+        deferred.addCallbacks(self.update_matching_view_with_rssfeed_results, self.show_rssfeed_fetch_error)
         return deferred
+
+    def show_rssfeed_fetch_error(self, failure):
+        if not self.dialog.get_visible():
+            return
+        self.get_object("label_status").set_text(failure.getErrorMessage())
 
     def perform_search(self):
         match_option_dict = self.get_search_settings()

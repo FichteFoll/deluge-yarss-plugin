@@ -6,11 +6,45 @@
 # See LICENSE for more details.
 #
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from twisted.trial import unittest
 
 import deluge_yarss2.yarss_config
 from deluge_yarss2.util import common, feedparsing, http
+from deluge_yarss2.util.feedparsing import http as feedparsing_http
+from deluge_yarss2.util.feedparsing.datetimes import _parse_date
 from deluge_yarss2.util.feedparsing.encodings import _parse_content_type_header
+
+
+class DigestAuthRequestHandler(BaseHTTPRequestHandler):
+    """Challenge every request for digest auth, unless it carries a digest Authorization header."""
+
+    def do_GET(self):  # NOQA: N802
+        authorization = self.headers.get("Authorization", "")
+        self.server.authorizations.append(authorization)
+        if authorization.startswith("Digest "):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"feed")
+            return
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Digest realm="yarss", nonce="nonce", qop="auth"')
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+
+class DigestAuthWithoutRealmRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):  # NOQA: N802
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Digest nonce="nonce", qop="auth"')
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
 
 
 class HTTPTestCase(unittest.TestCase):
@@ -57,6 +91,40 @@ class HTTPTestCase(unittest.TestCase):
         self.assertTrue("key2" in matching_cookies)
         self.assertEqual(matching_cookies["key2"], cookies["0"]["value"]["key2"])
         self.assertFalse("key3" in matching_cookies)
+
+    def get_matching_cookie_keys(self, site, url):
+        cookies = {"0": deluge_yarss2.yarss_config.get_fresh_cookie_config()}
+        cookies["0"]["site"] = site
+        cookies["0"]["value"]["key"] = "value"
+        return list(http.get_matching_cookies_dict(cookies, url))
+
+    def test_get_matching_cookies_dict_matches_by_hostname(self):
+        cases = [
+            ("example.com", "http://example.com/rss"),
+            ("example.com", "https://tracker.example.com/download/1.torrent"),
+            ("EXAMPLE.com", "http://example.COM/rss"),
+            (".example.com", "http://tracker.example.com/rss"),
+            (".example.com", "http://example.com/rss"),
+            ("https://example.com/login", "http://tracker.example.com/rss"),
+            ("example.com", "example.com:8080"),
+            ("example.com:8080", "http://example.com/rss"),
+            ("example.com", "http://user:pass@example.com:8080/rss"),
+        ]
+        not_matching = [case for case in cases if not self.get_matching_cookie_keys(*case)]
+        self.assertEqual([], not_matching)
+
+    def test_get_matching_cookies_dict_rejects_other_hosts(self):
+        cases = [
+            ("example.com", "http://notexample.com/rss"),
+            ("example.com", "http://example.com.evil.tld/rss"),
+            ("example.com", "http://evil.tld/?x=example.com"),
+            ("example", "http://tracker.example.org/rss"),
+            ("tracker.example.com", "http://example.com/rss"),
+            ("", "http://example.com/rss"),
+            (".", "http://example.com/rss"),
+        ]
+        matching = [case for case in cases if self.get_matching_cookie_keys(*case)]
+        self.assertEqual([], matching)
 
     def test_url_fix(self):
         url = "http://de.wikipedia.org/wiki/Elf (Begriffsklärung)"
@@ -171,3 +239,39 @@ class HTTPTestCase(unittest.TestCase):
         self.assertEqual("The top100 torrents", parsed_feeds.description)
         self.assertEqual("https://therss.so", parsed_feeds.link)
         self.assertEqual(None, parsed_feeds.ttl)
+
+    def test_parse_date_rejects_invalid_ambiguous_date(self):
+        self.assertEqual((2014, 4, 10, 3, 44, 14), _parse_date("10/04/2014 03:44:14")[:6])
+        self.assertEqual(None, _parse_date("31/02/2014 03:44:14"))
+
+    def test_parse_date_rejects_invalid_perforce_month(self):
+        self.assertEqual((2006, 9, 15, 12, 19, 53), _parse_date("Fri, 2006/09/15 08:19:53 EDT")[:6])
+        self.assertEqual(None, _parse_date("Fri, 2006/13/15 08:19:53 EDT"))
+        self.assertEqual(None, _parse_date("Fri, 2006/00/15 08:19:53 EDT"))
+
+    def test_feed_url_credentials_basic_and_digest_auth(self):
+        server = HTTPServer(("127.0.0.1", 0), DigestAuthRequestHandler)
+        server.authorizations = []
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+
+        result = {}
+        data = feedparsing_http.get(f"http://user:pass:word@127.0.0.1:{server.server_port}/feed", result=result)
+
+        self.assertEqual(b"feed", data)
+        self.assertEqual(200, result["status"])
+        basic, digest = server.authorizations
+        self.assertEqual("Basic dXNlcjpwYXNzOndvcmQ=", basic)
+        self.assertIn('username="user"', digest)
+
+    def test_feed_url_credentials_digest_challenge_without_realm(self):
+        server = HTTPServer(("127.0.0.1", 0), DigestAuthWithoutRealmRequestHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+
+        result = {}
+        feedparsing_http.get(f"http://user:pass@127.0.0.1:{server.server_port}/feed", result=result)
+
+        self.assertEqual(401, result["status"])

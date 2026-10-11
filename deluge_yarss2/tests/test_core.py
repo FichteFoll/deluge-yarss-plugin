@@ -7,6 +7,7 @@
 #
 
 import twisted.internet.defer as defer
+from twisted.python import threadable
 from twisted.trial import unittest
 
 import deluge.component as component
@@ -66,17 +67,19 @@ class CoreTestCase(unittest.TestCase):
     #
     #        #default_subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config()
 
+    @defer.inlineCallbacks
     def test_add_torrent(self):
         torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
         torrent_url = deluge_yarss2.util.common.get_resource(torrent_name, path="tests/data/")
         torrent_info = {"link": torrent_url}
-        download_dict = self.core.add_torrent(torrent_info)
+        download_dict = yield self.core.add_torrent(torrent_info)
         download = TorrentDownload(download_dict)
 
         self.assertTrue(download.success, "Download failed, but should be True")
         self.assertEqual(torrent_url, test_torrent_handling.test_component.downloads.pop().torrent_url)
         self.assertEqual(test_torrent_handling.test_component.added.pop().filename, torrent_name)
 
+    @defer.inlineCallbacks
     def test_add_torrent_default_user_agent(self):
         torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
         torrent_url = deluge_yarss2.util.common.get_resource(torrent_name, path="tests/data/")
@@ -86,9 +89,10 @@ class CoreTestCase(unittest.TestCase):
         self.config.set_config(config)
         self.core.yarss_config = self.config
 
-        download_dict = self.core.add_torrent(torrent_info)
+        download_dict = yield self.core.add_torrent(torrent_info)
         self.assertEqual(download_dict["headers"]["User-Agent"], default_user_agent)
 
+    @defer.inlineCallbacks
     def test_add_torrent_custom_user_agent(self):
         torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
         torrent_url = deluge_yarss2.util.common.get_resource(torrent_name, path="tests/data/")
@@ -99,8 +103,25 @@ class CoreTestCase(unittest.TestCase):
         self.config.set_config(config)
         self.core.yarss_config = self.config
 
-        download_dict = self.core.add_torrent(torrent_info)
+        download_dict = yield self.core.add_torrent(torrent_info)
         self.assertEqual(download_dict["headers"]["User-Agent"], custom_user_agent)
+
+    @defer.inlineCallbacks
+    def test_add_torrent_downloads_off_reactor_thread(self):
+        torrent_name = "FreeBSD-9.0-RELEASE-amd64-dvd1.torrent"
+        torrent_url = deluge_yarss2.util.common.get_resource(torrent_name, path="tests/data/")
+        get_torrent = self.torrent_handler.get_torrent
+        test_thread_id = threadable.getThreadID()
+        in_test_thread = []
+
+        def get_torrent_recording_thread(torrent_info):
+            in_test_thread.append(threadable.getThreadID() == test_thread_id)
+            return get_torrent(torrent_info)
+
+        self.torrent_handler.get_torrent = get_torrent_recording_thread
+        yield self.core.add_torrent({"link": torrent_url})
+
+        self.assertEqual(in_test_thread, [False])
 
     def test_initiate_rssfeed_update(self):
         config = test_common.get_test_config_dict()

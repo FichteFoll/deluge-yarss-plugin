@@ -10,14 +10,11 @@ def _parse_date_ambiguous(datestring):
     """ Handle dates formatted as 10/04/2014 03:44:14
     If the first value is actually the month, the result will be incorrect.
     """
-    result = date_regex.match(datestring)
-    if result:
-        try:
-            d = result.groupdict()
-            stamp = datetime.datetime(int(d["year"]), int(d["month"]), int(d["day"]),
-                                      int(d["hour"]), int(d["minutes"]), int(d["seconds"]))
-            result =  stamp.utctimetuple()
-        except (ValueError, TypeError) as e:
-            pass
-    return result
-
+    match = date_regex.match(datestring)
+    if not match:
+        return None
+    d = match.groupdict()
+    # Invalid values raise ValueError, which `_parse_date` handles.
+    stamp = datetime.datetime(int(d["year"]), int(d["month"]), int(d["day"]),
+                              int(d["hour"]), int(d["minutes"]), int(d["seconds"]))
+    return stamp.utctimetuple()

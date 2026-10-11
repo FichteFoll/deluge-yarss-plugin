@@ -8,6 +8,8 @@
 import logging
 
 from OpenSSL.SSL import Error as SSLError
+from twisted.internet import reactor
+from twisted.python import threadable
 
 import deluge.component as component
 
@@ -54,6 +56,13 @@ class Logger:
         return "{}.{}:{}: {}".format("YaRSS2", common.filename(), common.linenumber(), msg)
 
     def gtkui_log_message_event(self, message):
+        # Feed runs and emails log from worker threads, and the event is written to client transports
+        if threadable.isInIOThread():
+            self.emit_gtkui_log_message_event(message)
+        else:
+            reactor.callFromThread(self.emit_gtkui_log_message_event, message)
+
+    def emit_gtkui_log_message_event(self, message):
         try:
             # Tests throws KeyError for EventManager when running this method, so wrap this in try/except
             component.get("EventManager").emit(GtkUILogMessageEvent(message))

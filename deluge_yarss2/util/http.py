@@ -76,25 +76,31 @@ class HTTPOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch_url(url, headers=None):
+def get_ssl_context(verify_tls=True):
+    """Returns an SSL context that verifies certificates against the system's default CA store,
+    or one that skips certificate verification if `verify_tls` is false.
+    """
+    context = ssl.create_default_context()
+    if not verify_tls:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    return context
+
+
+def fetch_url(url, headers=None, timeout=None, verify_tls=True):
     """Returns the response body of a GET request to an http or https url.
 
-    The body of an HTTP error response is returned as well, so that error pages can be shown to the user.
+    Raises `urllib.error.HTTPError` for HTTP error responses.
+    Its `code` and `reason` describe the error, and its body can be read to show the error page to the user.
+    `timeout` (seconds) applies to the connection and to each blocking read, `None` waits indefinitely.
+    `verify_tls` false skips the verification of the server's TLS certificate.
     """
     check_fetch_url_scheme(url)
-    # Preserves the previous `requests.get(..., verify=False)` behavior.
-    # Enabling certificate verification is a separate decision.
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), HTTPOnlyRedirectHandler)
+    https_handler = urllib.request.HTTPSHandler(context=get_ssl_context(verify_tls))
+    opener = urllib.request.build_opener(https_handler, HTTPOnlyRedirectHandler)
     request = urllib.request.Request(url, headers=headers or {})
-    try:
-        with opener.open(request) as response:
-            return response.read()
-    except urllib.error.HTTPError as e:
-        with e:
-            return e.read()
+    with opener.open(request, timeout=timeout) as response:
+        return response.read()
 
 
 def get_matching_cookies_dict(cookies, url):
@@ -107,8 +113,7 @@ def get_matching_cookies_dict(cookies, url):
     for key in cookies.keys():
         if not cookies[key]["active"]:
             continue
-        # Test url match
-        if url.find(cookies[key]["site"]) != -1:
+        if cookie_site_matches(cookies[key]["site"], url):
             for k2 in cookies[key]["value"].keys():
                 matching_cookies[k2] = cookies[key]["value"][k2]
     return matching_cookies
@@ -123,6 +128,33 @@ def get_cookie_header(cookies, url=None):
     if len(cookies) == 0:
         return {}
     return {"Cookie": encode_cookie_values(cookies)}
+
+
+def get_hostname(url_or_host):
+    """Returns the lowercased hostname of a URL or of a host with an optional port,
+    or None if there is none."""
+    if not url_or_host:
+        return None
+    # Without a scheme, urlsplit does not recognize the host as the network location.
+    if "://" not in url_or_host:
+        url_or_host = "http://" + url_or_host
+    try:
+        return urlparse.urlsplit(url_or_host).hostname
+    except ValueError:
+        return None
+
+
+def cookie_site_matches(site, url):
+    """Returns whether a cookie for site applies to url,
+    i.e. url's hostname equals the site's hostname or is a subdomain of it.
+    Both may be given as URL or as host with an optional port."""
+    cookie_host = get_hostname(site)
+    url_host = get_hostname(url)
+    if cookie_host:
+        cookie_host = cookie_host.lstrip(".")
+    if not cookie_host or not url_host:
+        return False
+    return url_host == cookie_host or url_host.endswith("." + cookie_host)
 
 
 def encode_cookie_values(cookies_dict):

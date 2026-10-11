@@ -13,7 +13,7 @@ from twisted.trial import unittest
 
 import deluge_yarss2.yarss_config
 from deluge_yarss2.torrent_handling import TorrentHandler
-from deluge_yarss2.util import logging
+from deluge_yarss2.util import logging, yarss_email
 from deluge_yarss2.util.yarss_email import send_email, send_torrent_email
 
 from . import common as test_common
@@ -40,13 +40,21 @@ class Message:
 
 
 class DummySMTP:
-    def __init__(self, server_address, port):
+    def __init__(self, server_address, port, timeout=None):
         self.server_address = server_address
         self.port = port
+        self.timeout = timeout
         global smtp
         smtp = self
         self.ehlo_called = False
         self.starttls_called = False
+        self.closed = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.closed = True
 
     def login(self, username, password):
         self.username = username
@@ -61,6 +69,7 @@ class DummySMTP:
 
     def quit(self):
         self.has_quit = True
+        self.closed = True
 
     def ehlo(self):
         self.ehlo_called = True
@@ -124,6 +133,72 @@ class YaRSS2EmailTestCase(unittest.TestCase):
         self.assertTrue(smtp.ehlo_called)
         self.assertTrue(smtp.starttls_called)
 
+    def test_send_email_html_only(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message_html"] = "<p>Test Message</p>"
+
+        self.assertTrue(send_email(email, email_config))
+        self.assertIn(base64_encoded(email["message_html"]), inbox[-1].message)
+
+    def test_send_email_sendmail_failure_closes_connection(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message"] = "Test Message"
+
+        def failing_sendmail(self, from_address, to_address, fullmessage):
+            raise smtplib.SMTPException("sendmail failed")
+
+        self.patch(DummySMTP, "sendmail", failing_sendmail)
+
+        global smtp
+        self.assertFalse(send_email(email, email_config))
+        self.assertTrue(smtp.closed)
+
+    def test_send_email_closing_quit_error_returns_false(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message"] = "Test Message"
+
+        def failing_sendmail(self, from_address, to_address, fullmessage):
+            raise smtplib.SMTPException("sendmail failed")
+
+        def failing_exit(self, exc_type, exc_value, traceback):
+            self.closed = True
+            raise smtplib.SMTPResponseException(421, "Service not available")
+
+        self.patch(DummySMTP, "sendmail", failing_sendmail)
+        self.patch(DummySMTP, "__exit__", failing_exit)
+
+        global smtp
+        self.assertFalse(send_email(email, email_config))
+        self.assertTrue(smtp.closed)
+
+    def test_send_email_passes_timeout(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message"] = "Test Message"
+
+        global smtp
+        self.assertTrue(send_email(email, email_config))
+        self.assertEqual(smtp.timeout, yarss_email.SMTP_TIMEOUT)
+
 
 class YaRSS2TorrentEmailTestCase(unittest.TestCase):
     def setUp(self):  # NOQA
@@ -157,6 +232,17 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         self.expected_messsage_multipart.append('Content-Type: text/html; charset="utf-8"')
         self.expected_messsage_multipart.append("MIME-Version: 1.0")
         self.expected_messsage_multipart.append("Content-Transfer-Encoding: base64")
+
+    def record_sent_email_data(self):
+        """Record a copy of the data each `send_email` call receives, then send it."""
+        sent_email_data = []
+
+        def recording_send_email(email_conf, server_conf):
+            sent_email_data.append(dict(email_conf))
+            return send_email(email_conf, server_conf)
+
+        self.patch(yarss_email, "send_email", recording_send_email)
+        return sent_email_data
 
     def verify_email_multipart(self, email_message, email, email_config, email_data):
         """
@@ -259,10 +345,11 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         subscription = {"name": "Subscription name"}
         torrent_names = ["Torrent 1", "Torrent 2"]
         self.email["message"] = "Hi\n\nThis is a test message. \n\n$torrentlist\n\nRegards"
-        email_data = {}
+        sent_email_data = self.record_sent_email_data()
 
         def callback(args):
             message = smtp.get_emails().pop()
+            email_data = sent_email_data[-1]
             self.verify_email_multipart(message, self.email, self.email_config, email_data)
             # Verify that the torrent names have been inserted into the message
             self.assertTrue(email_data["message"].find(torrent_names[0]) != -1)
@@ -278,7 +365,6 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             subscription_data=subscription,
             deferred=False,
             callback_func=callback,
-            email_data=email_data,
         )
         self.assertTrue(has_sent)
         # Send email in
@@ -288,6 +374,57 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             torrent_name_list=torrent_names,
             deferred=True,
             callback_func=callback,
-            email_data=email_data,
         )
         return d
+
+    def test_send_torrent_email_builds_new_data_per_call(self):
+        sent_email_data = self.record_sent_email_data()
+        self.email["message"] = "Hi\n\n$torrentlist\n\nRegards"
+
+        send_torrent_email(self.email_config, self.email, torrent_name_list=["Torrent 1"])
+        send_torrent_email(self.email_config, self.email)
+
+        self.assertIn("message_html", sent_email_data[0])
+        self.assertNotIn("message_html", sent_email_data[1])
+        self.assertEqual(sent_email_data[1]["message"], self.email["message"])
+
+    def test_send_torrent_email_escapes_html_part(self):
+        sent_email_data = self.record_sent_email_data()
+        subscription = {"name": "Tom & Jerry"}
+        self.email["subject"] = "New in $subscription_title"
+        self.email["message"] = "<b>Hi</b> 1 < 2 in $subscription_title:\n$torrentlist\nBye"
+
+        send_torrent_email(
+            self.email_config, self.email, subscription_data=subscription, torrent_name_list=["<b>x</b>"]
+        )
+
+        email_data = sent_email_data[0]
+        self.assertEqual(email_data["subject"], "New in Tom & Jerry")
+        self.assertEqual(email_data["message"], "<b>Hi</b> 1 < 2 in Tom & Jerry:\n * <b>x</b>\n\nBye")
+        # The template is trusted and kept as is; only feed-provided torrent names
+        # and the subscription name are escaped.
+        self.assertEqual(
+            email_data["message_html"],
+            "<b>Hi</b> 1 < 2 in Tom &amp; Jerry:<br/><ul><li>&lt;b&gt;x&lt;/b&gt; </li></ul>Bye",
+        )
+
+    def test_send_torrent_email_replaces_torrentlist_at_end_of_message(self):
+        sent_email_data = self.record_sent_email_data()
+        self.email["message"] = "Hi\n$torrentlist"
+
+        send_torrent_email(self.email_config, self.email, torrent_name_list=["Torrent 1"])
+
+        email_data = sent_email_data[0]
+        self.assertEqual(email_data["message_html"], "Hi<br/><ul><li>Torrent 1 </li></ul>")
+
+    def test_send_torrent_email_replaces_torrentlist_followed_by_text(self):
+        sent_email_data = self.record_sent_email_data()
+        self.email["message"] = "Hi\n$torrentlist and more text\nBye"
+
+        send_torrent_email(self.email_config, self.email, torrent_name_list=["Torrent 1"])
+
+        email_data = sent_email_data[0]
+        self.assertEqual(
+            email_data["message_html"],
+            "Hi<br/><ul><li>Torrent 1 </li></ul> and more text<br/>Bye",
+        )

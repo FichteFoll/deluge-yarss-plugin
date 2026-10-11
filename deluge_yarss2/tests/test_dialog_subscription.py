@@ -6,6 +6,7 @@
 # See LICENSE for more details.
 #
 
+import copy
 import datetime
 import re
 from unittest import mock
@@ -18,11 +19,14 @@ import deluge.common
 import deluge.component as component
 import deluge.config
 import deluge.ui.client
+from deluge.error import DelugeError
 
 import deluge_yarss2.gtk3ui.dialog_subscription
+import deluge_yarss2.gtk3ui.gtkui
 import deluge_yarss2.util.common
 from deluge_yarss2 import yarss_config
-from deluge_yarss2.gtk3ui.dialog_subscription import DialogSubscription
+from deluge_yarss2.gtk3ui.dialog_subscription import DialogSubscription, get_viewable_result
+from deluge_yarss2.gtk3ui.gtkui import GtkUI
 from deluge_yarss2.tests import common as tests_common
 from deluge_yarss2.util import logging
 
@@ -150,6 +154,63 @@ class DialogSubscriptionTestCase(ComponentTestBase):
             deferred = subscription_dialog.perform_rssfeed_selection()
             deferred.addCallback(callback_func, subscription_dialog)
             return deferred
+
+    def test_rssfeed_fetch_error_shown_in_status(self):
+        config = self.get_test_config()
+        error_message = "Failed to fetch RSS Feed 'Test RSS Feed': timed out"
+        subscription_dialog = DialogSubscription(
+            TestGTKUIBase(),  # GTKUI
+            self.log,  # logger
+            yarss_config.get_fresh_subscription_config(),
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
+
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed") as mocked_func:
+            mocked_func.return_value = defer.succeed(None)
+            subscription_dialog.setup()
+            subscription_dialog.get_object("combobox_rssfeeds").set_active(0)
+            subscription_dialog.dialog = mock.Mock(**{"get_visible.return_value": True})
+
+            mocked_func.return_value = defer.fail(DelugeError(error_message))
+            deferred = subscription_dialog.perform_rssfeed_selection()
+
+        def verify_status(result):
+            label_status = subscription_dialog.get_object("label_status")
+            self.assertEqual(label_status.get_text(), error_message)
+
+        return deferred.addCallback(verify_status)
+
+    def test_setup_labels_with_label_plugin_disabled(self):
+        config = self.get_test_config()
+        gtkui = TestGTKUIBase()
+        gtkui.labels = None
+        subscription_dialog = DialogSubscription(
+            gtkui,
+            self.log,  # logger
+            yarss_config.get_fresh_subscription_config(),
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
+
+        subscription_dialog.setup()
+
+        combobox_labels = subscription_dialog.get_object("combobox_labels")
+        self.assertFalse(combobox_labels.get_sensitive())
+        self.assertEqual(combobox_labels.get_tooltip_text(), "Label plugin is not enabled")
+
+    def test_viewable_result_shows_page_text_of_unparsable_response(self):
+        raw_result = {
+            "raw_result": "Too many requests",
+            "bozo": 1,
+            "feed": {},
+            "items": [],
+            "bozo_exception": "not a feed",
+            "parser": "atoma",
+        }
+        self.assertEqual(get_viewable_result(raw_result), "Too many requests")
 
     def test_search(self):
 
@@ -376,3 +437,48 @@ class DialogSubscriptionTestCase(ComponentTestBase):
         torrent_link = "http://rarbg.to/rss_rt.php?id=k2jae9rlwn&m=t"
         success = yield subscription_dialog.add_torrent(torrent_link, None)
         self.assertFalse(success)
+
+    @defer.inlineCallbacks
+    def test_add_torrent_and_cancel_leaves_cached_subscription_unchanged(self):
+        config = self.get_test_config()
+        cached_subscription = config["subscriptions"]["0"]
+        original_subscription = copy.deepcopy(cached_subscription)
+
+        class TestGTKUI(TestGTKUIBase):
+            def __init__(self, log):
+                TestGTKUIBase.__init__(self)
+                self.log = log
+                self.subscriptions_treeview = None
+                self.subscriptions_store = None
+                self.subscriptions = config["subscriptions"]
+                self.rssfeeds = config["rssfeeds"]
+                self.email_messages = {}
+                self.cookies = {}
+                self.added_torrents = []
+
+            def add_torrent(self, torrent_link, subscription_data):
+                self.added_torrents.append((torrent_link, subscription_data))
+                return defer.succeed({})
+
+        yield component.start()  # Necessary to avoid 'Reactor was unclean' error
+
+        gtkui = TestGTKUI(self.log)
+        with (
+            mock.patch.object(deluge_yarss2.gtk3ui.gtkui, "get_value_in_selected_row", return_value="0"),
+            mock.patch.object(DialogSubscription, "show", autospec=True) as show,
+        ):
+            GtkUI.on_button_edit_subscription_clicked(gtkui)
+        subscription_dialog = show.call_args.args[0]
+
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed") as mocked_func:
+            mocked_func.return_value = defer.succeed(None)
+            subscription_dialog.setup()
+            subscription_dialog.get_object("txt_name").set_text("Edited name")
+
+            torrent_link = "http://example.org/test.torrent"
+            subscription_dialog.button_add_torrent_clicked(torrent_link, use_settings=True)
+            with mock.patch.object(subscription_dialog, "destroy"):
+                subscription_dialog.on_button_cancel_clicked()
+
+        self.assertEqual("Edited name", gtkui.added_torrents[0][1]["name"])
+        self.assertEqual(original_subscription, cached_subscription)

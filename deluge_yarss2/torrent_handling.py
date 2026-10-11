@@ -7,6 +7,8 @@
 #
 
 import os
+import urllib.error
+from http.client import HTTPException
 
 import deluge.component as component
 from deluge._libtorrent import lt
@@ -16,6 +18,10 @@ from deluge.error import AddTorrentError
 from deluge_yarss2.util import common, http, torrentinfo
 from deluge_yarss2.util.common import GeneralSubsConf, TorrentDownload
 from deluge_yarss2.util.yarss_email import send_torrent_email
+
+# Seconds. `add_torrents` runs on the reactor thread,
+# so a torrent download without timeout can block the whole daemon.
+TORRENT_DOWNLOAD_TIMEOUT = 30
 
 
 def get_label_plugin():
@@ -34,7 +40,7 @@ class TorrentHandler:
     def listen_on_torrent_finished(self, enable=True):
         component.get("EventManager").register_event_handler("TorrentFinishedEvent", self.on_torrent_finished_event)
 
-    def download_torrent_file(self, torrent_url, cookies=None, headers=None):
+    def download_torrent_file(self, torrent_url, cookies=None, headers=None, verify_tls=True):
         download = TorrentDownload()
         download.url = torrent_url
         download.cookies = cookies
@@ -43,7 +49,21 @@ class TorrentHandler:
         if cookies:
             request_headers["Cookie"] = http.encode_cookie_values(cookies)
         try:
-            download.filedump = http.fetch_url(torrent_url, headers=request_headers)
+            download.filedump = http.fetch_url(
+                torrent_url, headers=request_headers, timeout=TORRENT_DOWNLOAD_TIMEOUT, verify_tls=verify_tls
+            )
+        except urllib.error.HTTPError as e:
+            with e:
+                try:
+                    # Kept so that the error page can be shown to the user.
+                    download.filedump = e.read()
+                # OSError covers timeouts and connection resets, HTTPException a truncated body (IncompleteRead).
+                except (OSError, HTTPException) as read_error:
+                    self.log.warning(f"Failed to read the error response of torrent url '{torrent_url}': {read_error}")
+            error_msg = f"Failed to download torrent url: '{torrent_url}'. HTTP {e.code} {e.reason}"
+            self.log.error(error_msg)
+            download.set_error(error_msg)
+            return download
         except Exception as e:
             error_msg = f"Failed to download torrent url: '{torrent_url}'. Exception: {str(e)}"
             self.log.error(error_msg)
@@ -85,7 +105,9 @@ class TorrentHandler:
                 f"Downloading torrent: '{url}' using cookies: '{site_cookies_dict}', headers: '{headers}'",
                 gtkui=True,
             )
-            download = self.download_torrent_file(url, cookies=site_cookies_dict, headers=headers)
+            download = self.download_torrent_file(
+                url, cookies=site_cookies_dict, headers=headers, verify_tls=torrent_info.get("verify_tls", True)
+            )
             # Error occured
             if not download.success:
                 return download
@@ -120,7 +142,7 @@ class TorrentHandler:
                 options["auto_managed"] = GeneralSubsConf().get_boolean(subscription_data["auto_managed"])
             if (
                 "sequential_download" in subscription_data
-                and subscription_data["auto_managed"] != GeneralSubsConf.DEFAULT
+                and subscription_data["sequential_download"] != GeneralSubsConf.DEFAULT
             ):
                 options["sequential_download"] = GeneralSubsConf().get_boolean(subscription_data["sequential_download"])
             if subscription_data["prioritize_first_last_pieces"] != GeneralSubsConf.DEFAULT:
@@ -140,7 +162,14 @@ class TorrentHandler:
 
         if download.is_magnet:
             self.log.info(f"Adding magnet: '{torrent_url}'")
-            download.torrent_id = component.get("TorrentManager").add(options=options, magnet=download.url)
+            try:
+                download.torrent_id = component.get("TorrentManager").add(options=options, magnet=download.url)
+            except AddTorrentError as err:
+                download.success = False
+                download.set_error(f"Failed to add magnet to Deluge: {err}")
+                self.log.warning(download.error_msg)
+            else:
+                self._apply_label(download.torrent_id, subscription_data)
         else:
             # Error occured
             if not download.success:
@@ -154,6 +183,7 @@ class TorrentHandler:
             except Exception as e:
                 download.set_error(f"Unable to open torrent file: {torrent_url}. Error: {str(e)}")
                 self.log.warning(download.error_msg)
+                return download
 
             try:
                 download.torrent_id = component.get("TorrentManager").add(
@@ -164,14 +194,17 @@ class TorrentHandler:
                 download.set_error(f"Failed to add torrent to Deluge: {str(err)}")
                 self.log.warning(download.error_msg)
             else:
-                if (
-                    "Label" in component.get("Core").get_enabled_plugins()
-                    and subscription_data
-                    and subscription_data.get("label", "")
-                ):
-                    get_label_plugin().set_torrent(download.torrent_id, subscription_data["label"])
+                self._apply_label(download.torrent_id, subscription_data)
 
         return download
+
+    def _apply_label(self, torrent_id, subscription_data):
+        if (
+            "Label" in component.get("Core").get_enabled_plugins()
+            and subscription_data
+            and subscription_data.get("label", "")
+        ):
+            get_label_plugin().set_torrent(torrent_id, subscription_data["label"])
 
     def add_torrents(self, save_subscription_func, torrent_list, config):
         torrent_names = {}
@@ -181,7 +214,7 @@ class TorrentHandler:
             if not torrent_download.success:
                 self.log.warning(f"Failed to add torrent '{torrent_match['title']}' from url '{torrent_match['link']}'")
             else:
-                self.log.info("Succesfully added torrent '{}'.".format(torrent_match["title"]))
+                self.log.info("Successfully added torrent '{}'.".format(torrent_match["title"]))
                 # Update subscription with date
                 torrent_time = torrent_match["updated_datetime"]
 
@@ -196,28 +229,34 @@ class TorrentHandler:
                     save_subscription_func(subscription_data=torrent_match["subscription_data"])
 
                 # Handle email notification
-                # key is the dictionary key used in the email_messages config.
-                for key in torrent_match["subscription_data"]["email_notifications"].keys():
+                # notification_key is the dictionary key used in the email_messages config.
+                email_notifications = torrent_match["subscription_data"]["email_notifications"]
+                for notification_key in email_notifications.keys():
                     # Must be enabled in the subscription
-                    if not torrent_match["subscription_data"]["email_notifications"][key]["on_torrent_added"]:
+                    if not email_notifications[notification_key]["on_torrent_added"]:
                         continue
-                    if key not in torrent_names:
-                        torrent_names[key] = (torrent_match["subscription_data"], [])
+                    if notification_key not in torrent_names:
+                        torrent_names[notification_key] = (torrent_match["subscription_data"], [])
                     # Add the torrent file to the list of files for this notification.
-                    torrent_names[key][1].append(torrent_match["title"])
+                    torrent_names[notification_key][1].append(torrent_match["title"])
         if config["email_configurations"]["send_email_on_torrent_events"] is False:
             return
 
-        for email_key in torrent_names.keys():
-            # Check that the message is active
-            if not config["email_messages"][email_key]["active"]:
+        for email_key, (subscription_data, torrent_name_list) in torrent_names.items():
+            email_message = config["email_messages"].get(email_key)
+            if email_message is None:
+                self.log.warning(
+                    f"Not sending email notification '{email_key}' for subscription "
+                    f"'{subscription_data['name']}' because the email message does not exist."
+                )
                 continue
-            # Send email in
+            if not email_message["active"]:
+                continue
             send_torrent_email(
                 config["email_configurations"],
-                config["email_messages"][email_key],
-                subscription_data=torrent_names[key][0],
-                torrent_name_list=torrent_names[key][1],
+                email_message,
+                subscription_data=subscription_data,
+                torrent_name_list=torrent_name_list,
                 deferred=True,
             )
 

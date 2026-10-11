@@ -6,6 +6,7 @@
 # See LICENSE for more details.
 #
 
+import html
 import re
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -16,6 +17,11 @@ from twisted.internet import threads
 from deluge_yarss2.util import logging
 
 log = logging.getLogger(__name__)
+
+# send_email runs in a Twisted reactor thread pool thread (see send_torrent_email's
+# deferToThread call), so blocking on a stuck SMTP server there is harmless to the
+# reactor, but we still want to give up eventually.
+SMTP_TIMEOUT = 30
 
 
 def send_email(email_conf, server_conf):
@@ -34,7 +40,7 @@ def send_email(email_conf, server_conf):
             mime_message = MIMEText(email_conf["message"].encode("utf-8"), "plain", _charset="utf-8")
     elif "message_html" in email_conf:
         # Send html message
-        mime_message = MIMEText(email_conf["message"].encode("utf-8"), "html", _charset="utf-8")
+        mime_message = MIMEText(email_conf["message_html"].encode("utf-8"), "html", _charset="utf-8")
     else:
         log.warning("Email config must contain either 'message' or 'message_html'")
         return False
@@ -50,38 +56,45 @@ def send_email(email_conf, server_conf):
         except ValueError:
             pass
     try:
-        mail_server = smtplib.SMTP(server_conf["smtp_server"], port)
+        mail_server = smtplib.SMTP(server_conf["smtp_server"], port, timeout=SMTP_TIMEOUT)
     except Exception as e:
         log.error(f"There was an error sending the notification email: {e}")
         return False
 
-    log.info(
-        f"Sending email message:\nTo: {mime_message['To']}\nFrom: {mime_message['From']}\n"
-        f"Subject: {mime_message['Subject']}\n"
-    )
-    log.info(
-        "Server: {}, port: {}, authentication: {}".format(
-            server_conf["smtp_server"], server_conf["smtp_port"], server_conf["smtp_authentication"]
-        )
-    )
-    if server_conf["smtp_authentication"]:
-        mail_server.ehlo()
-        mail_server.starttls()
-        mail_server.ehlo()
-        try:
-            mail_server.login(server_conf["smtp_username"], server_conf["smtp_password"])
-        except smtplib.SMTPHeloError:
-            log.warning("The server didn't reply properly to the helo greeting")
-        except smtplib.SMTPAuthenticationError:
-            log.warning("The server didn't accept the username/password combination")
     try:
-        mail_server.sendmail(server_conf["from_address"], email_conf["to_address"], mime_message.as_string())
-        mail_server.quit()
-    except Exception as e:
-        log.error(f"Sending email notification failed: {e}")
+        with mail_server:
+            log.info(
+                f"Sending email message:\nTo: {mime_message['To']}\nFrom: {mime_message['From']}\n"
+                f"Subject: {mime_message['Subject']}\n"
+            )
+            log.info(
+                "Server: {}, port: {}, authentication: {}".format(
+                    server_conf["smtp_server"], server_conf["smtp_port"], server_conf["smtp_authentication"]
+                )
+            )
+            if server_conf["smtp_authentication"]:
+                mail_server.ehlo()
+                mail_server.starttls()
+                mail_server.ehlo()
+                try:
+                    mail_server.login(server_conf["smtp_username"], server_conf["smtp_password"])
+                except smtplib.SMTPHeloError:
+                    log.warning("The server didn't reply properly to the helo greeting")
+                except smtplib.SMTPAuthenticationError:
+                    log.warning("The server didn't accept the username/password combination")
+            try:
+                mail_server.sendmail(server_conf["from_address"], email_conf["to_address"], mime_message.as_string())
+                mail_server.quit()
+            except Exception as e:
+                log.error(f"Sending email notification failed: {e}")
+                return False
+            else:
+                log.info("Sending email notification of finished torrent was successful")
+    except smtplib.SMTPResponseException as e:
+        # __exit__ re-raises if the server answers the closing QUIT with an error;
+        # the connection is already closed at that point, so just log it.
+        log.warning(f"The server responded with an error while closing the connection: {e}")
         return False
-    else:
-        log.info("Sending email notification of finished torrent was successful")
     return True
 
 
@@ -92,7 +105,6 @@ def send_torrent_email(
     torrent_name_list=None,
     deferred=False,
     callback_func=None,
-    email_data={},
 ):
     """Send email with optional list of torrents
     Arguments:
@@ -101,24 +113,30 @@ def send_torrent_email(
     torrents - a tuple containing the subscription data and a list of torrent names.
     """
     log.info("Sending email '{}'".format(email_msg["name"]))
-    email_data["to_address"] = email_msg["to_address"]
-    email_data["subject"] = email_msg["subject"]
-    email_data["message"] = email_msg["message"]
+    email_data = {
+        "to_address": email_msg["to_address"],
+        "subject": email_msg["subject"],
+        "message": email_msg["message"],
+    }
+    # The template is user-configured and trusted, so it is used as is;
+    # only feed-provided torrent names and the subscription name are escaped below.
+    message_html = email_msg["message"]
 
-    if email_data["message"].find("$subscription_title") != -1 and subscription_data:
-        email_data["message"] = email_data["message"].replace("$subscription_title", subscription_data["name"])
-
-    if email_data["subject"].find("$subscription_title") != -1 and subscription_data:
-        email_data["subject"] = email_data["subject"].replace("$subscription_title", subscription_data["name"])
+    if subscription_data:
+        subscription_title = subscription_data["name"]
+        email_data["message"] = email_data["message"].replace("$subscription_title", subscription_title)
+        email_data["subject"] = email_data["subject"].replace("$subscription_title", subscription_title)
+        message_html = message_html.replace("$subscription_title", html.escape(subscription_title))
 
     if email_data["message"].find("$torrentlist") != -1 and torrent_name_list:
-        torrentlist_plain = " * {}\n".format("\n * ".join(f for f in torrent_name_list))
-        msg_plain = email_data["message"].replace("$torrentlist", torrentlist_plain)
-        torrentlist_html = "<ul><li>{} </li></ul>".format("</li> \n <li> ".join(f for f in torrent_name_list))
-        msg_html = email_data["message"].replace("\n", "<br/>")
-        msg_html = re.sub(r"\$torrentlist(<br/>){1}?", torrentlist_html, msg_html)
-        email_data["message"] = msg_plain
-        email_data["message_html"] = msg_html
+        torrentlist_plain = " * {}\n".format("\n * ".join(torrent_name_list))
+        torrentlist_html = "<ul><li>{} </li></ul>".format(
+            "</li> \n <li> ".join(html.escape(name) for name in torrent_name_list)
+        )
+        email_data["message"] = email_data["message"].replace("$torrentlist", torrentlist_plain)
+        message_html = message_html.replace("\n", "<br/>")
+        # A function replacement inserts the names literally; a string would expand backslash escapes in them.
+        email_data["message_html"] = re.sub(r"\$torrentlist(<br/>)?", lambda _: torrentlist_html, message_html)
 
     # Send email with twisted to avoid waiting
     if deferred:

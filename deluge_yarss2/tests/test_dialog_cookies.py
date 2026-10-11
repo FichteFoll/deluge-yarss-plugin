@@ -7,12 +7,15 @@
 #
 
 import copy
+from unittest import mock
 
 import pytest
 from twisted.trial import unittest
 
+import deluge_yarss2.gtk3ui.gtkui
 import deluge_yarss2.yarss_config
 from deluge_yarss2.gtk3ui.dialog_cookie import DialogCookie
+from deluge_yarss2.gtk3ui.gtkui import GtkUI
 from deluge_yarss2.util import logging
 
 from .utils.log_utils import plugin_tests_logger_name
@@ -56,3 +59,25 @@ class DialogCookiesTestCase(unittest.TestCase):
 
         self.test_cookie["value"]["key1"] = "value1"
         self.assertEqual(self.test_cookie, dummy.cookie_data)
+
+    def test_cancel_edit_leaves_cached_cookie_unchanged(self):
+        self.test_cookie["key"] = "0"
+        self.test_cookie["site"] = "Site url"
+        self.test_cookie["value"]["key1"] = "value1"
+        cached_cookie = copy.deepcopy(self.test_cookie)
+        gtkui = mock.Mock(cookies={"0": cached_cookie})
+
+        with (
+            mock.patch.object(deluge_yarss2.gtk3ui.gtkui, "get_value_in_selected_row", return_value="0"),
+            mock.patch.object(DialogCookie, "show", autospec=True) as show,
+        ):
+            GtkUI.on_button_edit_cookie_clicked(gtkui)
+        dialog = show.call_args.args[0]
+        dialog.dialog = DummyClass()
+
+        dialog.treeview.get_selection().select_iter(dialog.list_store.get_iter_first())
+        dialog.on_button_remove_cookie_data_clicked(None)
+        dialog.on_button_cancel_clicked()
+
+        self.assertEqual({}, dialog.cookie_data["value"])
+        self.assertEqual(self.test_cookie, cached_cookie)

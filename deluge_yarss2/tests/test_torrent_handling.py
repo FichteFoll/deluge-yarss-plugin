@@ -10,11 +10,13 @@ import datetime
 import os.path
 import pathlib
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
 from twisted.trial import unittest
 
+from deluge.core.torrent import TorrentOptions
 from deluge.error import AddTorrentError
 
 import deluge_yarss2.torrent_handling
@@ -55,7 +57,7 @@ class TestComponent:
         self.added.append(download)
         return download
 
-    def download_torrent_file(self, torrent_url, cookies=None, headers=None):
+    def download_torrent_file(self, torrent_url, cookies=None, headers=None, verify_tls=True):
         download = TorrentDownload()
         download.torrent_url = torrent_url
         download.cookies = cookies
@@ -89,7 +91,7 @@ deluge_yarss2.torrent_handling.component = test_torrent_handling
 
 class TorrentHandlingTestCase(unittest.TestCase):
     def setUp(self):  # NOQA
-        self.patch(http, "fetch_url", lambda url, headers=None: read_file(url))
+        self.patch(http, "fetch_url", lambda url, headers=None, **kwargs: read_file(url))
         self.log = log
         self.config = test_common.get_test_config()
         # get_test_config will load a new core.conf with the default values.
@@ -227,15 +229,250 @@ class TorrentHandlingTestCase(unittest.TestCase):
         self.assertEqual(len(saved_subscriptions), 3)
         handler.use_filedump = None
 
+    def test_add_torrents_sends_each_notification_with_its_own_data(self):
+        handler = TorrentHandler(self.log)
+
+        subscription_a = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub A")
+        subscription_a["email_notifications"] = {"0": {"on_torrent_added": True, "on_torrent_completed": False}}
+        subscription_b = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub B")
+        subscription_b["email_notifications"] = {"1": {"on_torrent_added": True, "on_torrent_completed": False}}
+
+        torrent_list = [
+            {
+                "link": "http://url.com/a.torrent",
+                "title": "Torrent A",
+                "updated_datetime": None,
+                "subscription_data": subscription_a,
+                "torrent_download": TorrentDownload(),
+            },
+            {
+                "link": "http://url.com/b.torrent",
+                "title": "Torrent B",
+                "updated_datetime": None,
+                "subscription_data": subscription_b,
+                "torrent_download": TorrentDownload(),
+            },
+        ]
+
+        message_a = deluge_yarss2.yarss_config.get_fresh_message_config()
+        message_a["name"] = "0"
+        message_a["active"] = True
+        message_b = deluge_yarss2.yarss_config.get_fresh_message_config()
+        message_b["name"] = "1"
+        message_b["active"] = True
+        config = {
+            "email_configurations": {"send_email_on_torrent_events": True},
+            "email_messages": {"0": message_a, "1": message_b},
+        }
+
+        def save_subscription_func(subscription_data):
+            pass
+
+        with (
+            self.assertLogs(plugin_tests_logger_name, level="INFO") as log_messages,
+            mock.patch.object(deluge_yarss2.torrent_handling, "send_torrent_email") as mock_send_email,
+        ):
+            handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        self.assertEqual(mock_send_email.call_count, 2)
+        sent_by_message_name = {call.args[1]["name"]: call for call in mock_send_email.call_args_list}
+        self.assertEqual(sent_by_message_name["0"].kwargs["subscription_data"], subscription_a)
+        self.assertEqual(sent_by_message_name["0"].kwargs["torrent_name_list"], ["Torrent A"])
+        self.assertEqual(sent_by_message_name["1"].kwargs["subscription_data"], subscription_b)
+        self.assertEqual(sent_by_message_name["1"].kwargs["torrent_name_list"], ["Torrent B"])
+
+        self.assertTrue(any("Successfully added torrent 'Torrent A'" in m for m in log_messages.output))
+        self.assertTrue(any("Successfully added torrent 'Torrent B'" in m for m in log_messages.output))
+
+    def test_add_torrents_skips_missing_email_message(self):
+        handler = TorrentHandler(self.log)
+        subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub A")
+        subscription["email_notifications"] = {"5": {"on_torrent_added": True, "on_torrent_completed": False}}
+        torrent_list = [
+            {
+                "link": "http://url.com/a.torrent",
+                "title": "Torrent A",
+                "updated_datetime": None,
+                "subscription_data": subscription,
+                "torrent_download": TorrentDownload(),
+            },
+        ]
+        config = {"email_configurations": {"send_email_on_torrent_events": True}, "email_messages": {}}
+
+        def save_subscription_func(subscription_data):
+            pass
+
+        with (
+            self.assertLogs(plugin_tests_logger_name, level="WARNING") as log_messages,
+            mock.patch.object(deluge_yarss2.torrent_handling, "send_torrent_email") as mock_send_email,
+        ):
+            handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        mock_send_email.assert_not_called()
+        self.assertTrue(any("'5'" in m and "'Sub A'" in m for m in log_messages.output))
+
+    def test_add_torrents_undated_item_keeps_last_match(self):
+        handler = TorrentHandler(self.log)
+        subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config(name="Sub A")
+        subscription["last_match"] = "2020-03-29T10:00:00+02:00"
+        torrent_list = [
+            {
+                "link": "http://url.com/a.torrent",
+                "title": "Torrent A",
+                "updated_datetime": None,
+                "subscription_data": subscription,
+                "torrent_download": TorrentDownload(),
+            },
+        ]
+        config = {"email_configurations": {"send_email_on_torrent_events": False}, "email_messages": {}}
+        saved_subscriptions = []
+
+        def save_subscription_func(subscription_data):
+            saved_subscriptions.append(subscription_data)
+
+        handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        self.assertEqual(subscription["last_match"], "2020-03-29T10:00:00+02:00")
+        self.assertEqual(saved_subscriptions, [])
+
+    def test_add_torrent_magnet_raises_add_torrent_error(self):  # noqa: N802
+        handler = TorrentHandler(self.log)
+        torrent_info = {"link": "magnet:blbalba/url.magnet.link", "site_cookies_dict": {}}
+
+        with mock.patch.object(TestComponent, "add") as test_component_add:
+            test_component_add.side_effect = AddTorrentError("Torrent already in session (1).")
+            download = handler.add_torrent(torrent_info)
+        self.assertFalse(download.success)
+
+    def test_add_torrents_continues_after_magnet_refused(self):
+        handler = TorrentHandler(self.log)
+        torrent_list = [
+            {
+                "link": "magnet:blbalba/a.magnet.link",
+                "title": "Magnet A",
+                "updated_datetime": None,
+                "subscription_data": deluge_yarss2.yarss_config.get_fresh_subscription_config(),
+            },
+            {
+                "link": "magnet:blbalba/b.magnet.link",
+                "title": "Magnet B",
+                "updated_datetime": None,
+                "subscription_data": deluge_yarss2.yarss_config.get_fresh_subscription_config(),
+            },
+        ]
+
+        def save_subscription_func(subscription_data):
+            pass
+
+        config = {"email_configurations": {"send_email_on_torrent_events": False}}
+
+        original_add = TestComponent.add
+        calls = []
+
+        def add_side_effect(filedump=None, filename=None, options=None, magnet=None):
+            calls.append(magnet)
+            if len(calls) == 1:
+                raise AddTorrentError("Torrent already in session (1).")
+            return original_add(test_component, filedump=filedump, filename=filename, options=options, magnet=magnet)
+
+        with mock.patch.object(TestComponent, "add", side_effect=add_side_effect):
+            handler.add_torrents(save_subscription_func, torrent_list, config)
+
+        self.assertEqual(len(test_component.added), 1)
+        self.assertEqual(test_component.added[0].magnet, "magnet:blbalba/b.magnet.link")
+
+    def test_add_torrent_magnet_applies_label(self):
+        handler = TorrentHandler(self.log)
+        subscription_data = deluge_yarss2.yarss_config.get_fresh_subscription_config()
+        subscription_data["label"] = "tv"
+        torrent_info = {
+            "link": "magnet:blbalba/url.magnet.link",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+        }
+
+        with (
+            mock.patch.object(TestComponent, "get_enabled_plugins", return_value=["Label"]),
+            mock.patch.object(TestComponent, "set_torrent", create=True) as mock_set_torrent,
+        ):
+            download = handler.add_torrent(torrent_info)
+
+        self.assertTrue(download.success)
+        mock_set_torrent.assert_called_once_with(download.torrent_id, "tv")
+
+    def test_add_torrent_returns_without_adding_for_invalid_torrent_file(self):
+        handler = TorrentHandler(self.log)
+        download = TorrentDownload()
+        download.success = True
+        download.filedump = b"not a torrent"
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "torrent_download": download,
+        }
+
+        with mock.patch.object(
+            deluge_yarss2.torrent_handling.torrentinfo, "TorrentInfo", side_effect=Exception("bad torrent")
+        ):
+            result = handler.add_torrent(torrent_info)
+
+        self.assertFalse(result.success)
+        self.assertEqual(test_component.added, [])
+
+    def test_add_torrent_applies_sequential_download_independently_of_auto_managed(self):
+        handler = TorrentHandler(self.log)
+        subscription_data = deluge_yarss2.yarss_config.get_fresh_subscription_config()
+        subscription_data["auto_managed"] = GeneralSubsConf.DEFAULT
+        subscription_data["sequential_download"] = GeneralSubsConf.ENABLED
+
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+            "torrent_download": TorrentDownload(),
+        }
+        handler.add_torrent(torrent_info)
+        added = test_component.added.pop()
+        self.assertTrue(added.options["sequential_download"] is True)
+
+        subscription_data["auto_managed"] = GeneralSubsConf.ENABLED
+        subscription_data["sequential_download"] = GeneralSubsConf.DEFAULT
+
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+            "torrent_download": TorrentDownload(),
+        }
+        handler.add_torrent(torrent_info)
+        added = test_component.added.pop()
+        self.assertEqual(added.options["sequential_download"], TorrentOptions()["sequential_download"])
+
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):
     torrent_path = "/file.torrent"
+    slow_torrent_path = "/slow.torrent"
+    truncated_error_path = "/truncated-error.torrent"
+    # Bounds the wait of the slow path, so that a client without timeout fails the test instead of hanging.
+    slow_delay = 2
     not_found_body = b"<html><body><p>Torrent not found</p></body></html>"
 
     def do_GET(self):  # noqa: N802
         self.server.request_headers.append(self.headers)
         if self.path == self.torrent_path:
             self.send_body(200, "application/x-bittorrent", self.server.torrent_data)
+        elif self.path == self.slow_torrent_path:
+            # Released early on test cleanup, when the client has already given up.
+            if not self.server.release_slow.wait(timeout=self.slow_delay):
+                self.send_body(200, "application/x-bittorrent", self.server.torrent_data)
+        elif self.path == self.truncated_error_path:
+            # Announces a longer body than it sends, so that reading the error body fails.
+            self.send_response(503)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(self.not_found_body) + 100))
+            self.end_headers()
+            self.wfile.write(self.not_found_body)
+            self.close_connection = True
         else:
             self.send_body(404, "text/html", self.not_found_body)
 
@@ -257,11 +494,13 @@ class DownloadTorrentFileTestCase(unittest.TestCase):
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), TorrentRequestHandler)
         self.server.torrent_data = self.torrent_data
         self.server.request_headers = []
+        self.server.release_slow = threading.Event()
         thread = threading.Thread(target=self.server.serve_forever)
         thread.start()
         self.addCleanup(thread.join)
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
+        self.addCleanup(self.server.release_slow.set)
         self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
         self.handler = TorrentHandler(log)
 
@@ -281,6 +520,20 @@ class DownloadTorrentFileTestCase(unittest.TestCase):
         download = self.handler.download_torrent_file(self.base_url + "/missing.torrent")
         self.assertFalse(download.success)
         self.assertEqual(download.filedump, TorrentRequestHandler.not_found_body)
+        self.assertIn("404", download.error_msg)
+
+    def test_download_torrent_file_unreadable_error_body(self):
+        download = self.handler.download_torrent_file(self.base_url + TorrentRequestHandler.truncated_error_path)
+        self.assertFalse(download.success)
+        self.assertIn("503", download.error_msg)
+
+    def test_download_torrent_file_timeout(self):
+        self.patch(deluge_yarss2.torrent_handling, "TORRENT_DOWNLOAD_TIMEOUT", 0.2)
+        start = time.monotonic()
+        download = self.handler.download_torrent_file(self.base_url + TorrentRequestHandler.slow_torrent_path)
+        elapsed = time.monotonic() - start
+        self.assertLess(elapsed, 1)
+        self.assertFalse(download.success)
 
     def test_download_torrent_file_rejects_file_url(self):
         filename = deluge_yarss2.util.common.get_resource("FreeBSD-9.0-RELEASE-amd64-dvd1.torrent", path="tests/data/")

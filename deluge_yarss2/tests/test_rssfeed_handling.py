@@ -6,11 +6,16 @@
 # See LICENSE for more details.
 #
 import datetime
+from unittest import mock
+from urllib.error import URLError
 
+import rencode
 from twisted.trial import unittest
 
+from deluge.error import DelugeError
+
 import deluge_yarss2.util.common
-from deluge_yarss2 import rssfeed_handling
+from deluge_yarss2 import rssfeed_handling, yarss_config
 from deluge_yarss2.util import common, logging
 
 from . import common as test_common
@@ -21,11 +26,32 @@ from .utils.log_utils import plugin_tests_logger_name
 log = logging.getLogger(plugin_tests_logger_name)
 
 
+class RecordingLog:
+    """Minimal logger stub that records the messages passed to info/warning."""
+
+    def __init__(self):
+        self.info_messages = []
+        self.warning_messages = []
+
+    def info(self, message, gtkui=True):
+        self.info_messages.append(message)
+
+    def warning(self, message, gtkui=True):
+        self.warning_messages.append(message)
+
+
 class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
     def setUp(self):  # NOQA
         self.log = log
         self.rssfeedhandler = rssfeed_handling.RSSFeedHandler(self.log)
         self.set_unittest_maxdiff(None)
+
+    def test_handle_ttl_missing_value_is_treated_as_no_ttl(self):
+        rssfeed_data = {"obey_ttl": True, "name": "x", "update_interval": 60}
+        fetch_data = {}
+        self.rssfeedhandler.handle_ttl(rssfeed_data, {"ttl": None}, fetch_data)
+        self.assertNotIn("ttl", fetch_data)
+        self.assertFalse(rssfeed_data["obey_ttl"])
 
     def test_get_rssfeed_parsed(self):
         file_url = deluge_yarss2.util.common.get_resource(test_common.testdata_rssfeed_filename, path="tests/")
@@ -211,7 +237,7 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
 
         self.assertEqual("This is the title", item0["title"])
         self.assertEqual(link, rssfeed_handling.get_item_download_link(item0))
-        self.assertEqual([(4541927915.52, "4.23 GB")], rssfeed_handling.get_download_size(item0))
+        self.assertEqual([(4541927915.52, "4.2 GiB")], rssfeed_handling.get_download_size(item0))
 
         self.assertEqual("[TORRENT] This is the title", item2["title"])
         self.assertEqual(link, rssfeed_handling.get_item_download_link(item2))
@@ -224,11 +250,11 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         size = self.rssfeedhandler.get_size(parsed_feed["items"][0])
 
         self.assertEqual(1, len(size))
-        self.assertEqual((4541927915.52, "4.23 GB"), size[0])
+        self.assertEqual((4541927915.52, "4.2 GiB"), size[0])
 
         size = self.rssfeedhandler.get_size(parsed_feed["items"][1])
         self.assertEqual(1, len(size))
-        self.assertEqual((402349096.96, "383.71 MB"), size[0])
+        self.assertEqual((402349096.96, "383.7 MiB"), size[0])
 
         size = self.rssfeedhandler.get_size(parsed_feed["items"][2])
         self.assertEqual(1, len(size))
@@ -237,7 +263,15 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         size = self.rssfeedhandler.get_size(parsed_feed["items"][3])
         self.assertEqual(2, len(size))
         self.assertEqual((14353107637), size[0])
-        self.assertEqual((13529146982.4, "12.6 GB"), size[1])
+        self.assertEqual((13529146982.4, "12.6 GiB"), size[1])
+
+    def test_parse_size(self):
+        self.assertEqual((734003200.0, "700.0 MiB"), rssfeed_handling._parse_size("Size: 700 MiB"))
+        self.assertEqual((1610612736.0, "1.5 GiB"), rssfeed_handling._parse_size("size: 1.5 gib"))
+        self.assertEqual((2199023255552.0, "2.0 TiB"), rssfeed_handling._parse_size("Size: 2 TB"))
+        self.assertEqual((524288.0, "512.0 KiB"), rssfeed_handling._parse_size("Size: 512 KB"))
+        self.assertEqual((100.0, "100 B"), rssfeed_handling._parse_size("Size: 100 B"))
+        self.assertEqual((0, None), rssfeed_handling._parse_size("No size here"))
 
     def get_default_rssfeeds_dict(self):
         match_option_dict = {}
@@ -323,6 +357,55 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         matche_result = self.rssfeedhandler.fetch_feed_torrents(config, "0")  # 0 is the rssfeed key
         self.assertEqual(matche_result["user_agent"], custom_user_agent)
 
+    def _build_undated_match_fixture(self, ignore_timestamp):
+        recording_log = RecordingLog()
+        handler = rssfeed_handling.RSSFeedHandler(recording_log)
+
+        subscription_data = yarss_config.get_fresh_subscription_config(
+            name="Test subscription",
+            regex_include="Undated",
+            last_match=common.get_default_date().isoformat(),
+        )
+        subscription_data["ignore_timestamp"] = ignore_timestamp
+
+        rssfeed_data = yarss_config.get_fresh_rssfeed_config(name="Test feed", url="http://example.com/feed")
+
+        item = handler._new_rssfeeds_dict_item("Undated item", link="http://example.com/item.torrent")
+        fetch_data = {
+            "matching_torrents": [],
+            "rssfeed_items": {0: item},
+            "site_cookies_dict": {},
+            "user_agent": "test-agent",
+        }
+
+        return handler, subscription_data, rssfeed_data, fetch_data, recording_log
+
+    def test_fetch_feed_skips_undated_match_without_ignore_timestamp(self):
+        handler, subscription_data, rssfeed_data, fetch_data, recording_log = self._build_undated_match_fixture(
+            ignore_timestamp=False
+        )
+
+        # An undated item must not trigger isodate_to_datetime's own parse warning.
+        with self.assertNoLogs("deluge_yarss2.util.common", level="WARNING"):
+            handler.fetch_feed(subscription_data, rssfeed_data, fetch_data)
+
+        self.assertEqual(fetch_data["matching_torrents"], [])
+        self.assertIn(
+            "Not adding 'Undated item' because it has no publish date. "
+            'Enable "Ignore timestamp" in the subscription to add such items.',
+            recording_log.info_messages,
+        )
+        self.assertEqual(recording_log.warning_messages, [])
+
+    def test_fetch_feed_adds_undated_match_with_ignore_timestamp(self):
+        handler, subscription_data, rssfeed_data, fetch_data, _ = self._build_undated_match_fixture(
+            ignore_timestamp=True
+        )
+        handler.fetch_feed(subscription_data, rssfeed_data, fetch_data)
+        matching_torrents = fetch_data["matching_torrents"]
+        self.assertEqual(len(matching_torrents), 1)
+        self.assertIsNone(matching_torrents[0]["updated_datetime"])
+
     def test_feedparser_dates(self):
         file_url = deluge_yarss2.util.common.get_resource("rss_with_special_dates.rss", path="tests/data/feeds/")
         rssfeed_data = {"name": "Test", "url": file_url}
@@ -361,6 +444,19 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
         self.assertTrue("items" in parsed_feed)
 
+    def test_fetch_and_parse_rssfeed_atom_malformed_values(self):
+        rss = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel>
+<title>Feed</title><link>http://example.org</link><description>Feed</description>
+<ttl>abc</ttl>
+<image><url>http://example.org/i.png</url><title>Feed</title><link>http://example.org</link><width>abc</width></image>
+<item><title>Item</title><link>http://example.org/1.torrent</link><pubDate>2020-01-01T00:00:00+25:00</pubDate></item>
+</channel></rss>"""
+        parsed_feed = rssfeed_handling.fetch_and_parse_rssfeed_atom(rss)
+        self.assertIsNone(parsed_feed["feed"]["ttl"])
+        self.assertEqual(["Item"], [item["title"] for item in parsed_feed["items"]])
+        self.assertNotIn("published_date", parsed_feed["items"][0])
+
     def test_get_rssfeed_parsed_server_error_message(self):
         file_url = deluge_yarss2.util.common.get_resource(
             "rarbg.to.rss.too_many_requests.html", path="tests/data/feeds/"
@@ -369,6 +465,33 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
         self.assertTrue("items" not in parsed_feed)
         self.assertTrue("too many requests" in parsed_feed["raw_result"]["raw_result"])
+
+    def test_get_rssfeed_parsed_unparsable_result_is_rpc_encodable(self):
+        file_url = deluge_yarss2.util.common.get_resource(
+            "rarbg.to.rss.too_many_requests.html", path="tests/data/feeds/"
+        )
+        rssfeed_data = {"name": "Test", "url": file_url}
+        parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
+        rencode.dumps(parsed_feed)
+        self.assertIsInstance(parsed_feed["bozo_exception"], str)
+
+    def test_get_rssfeed_parsed_feed_without_channel_is_bozo(self):
+        file_url = deluge_yarss2.util.common.get_resource("broken-no-channel.xml", path="tests/atoma/rss/")
+        rssfeed_data = {"name": "Test", "url": file_url}
+        parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
+        self.assertIsInstance(parsed_feed["bozo_exception"], str)
+        self.assertEqual(parsed_feed["raw_result"]["items"], [])
+
+    def test_get_rssfeed_parsed_network_error(self):
+        rssfeed_data = {"name": "Test", "url": "https://example.invalid/rss"}
+        error = URLError(TimeoutError("The handshake operation timed out"))
+        with mock.patch.object(rssfeed_handling, "fetch_and_parse_rssfeed", side_effect=error):
+            with self.assertRaises(DelugeError) as context:
+                self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
+        self.assertEqual(
+            str(context.exception),
+            "Failed to fetch RSS Feed 'Test' from 'https://example.invalid/rss': The handshake operation timed out",
+        )
 
     # def test_test_feedparser_parse(self):
     #     #file_url = deluge_yarss2.util.common.get_resource(test_common.testdata_rssfeed_filename, path="tests/")

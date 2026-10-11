@@ -529,7 +529,7 @@ class CompletionList(ValueList):
 
     def on_completion_treeview_motion_notify_event(self, widget, event):
         if event.is_hint:
-            x, y, state = event.window.get_pointer()
+            _, x, y, state = event.window.get_pointer()
         else:
             x = event.x
             y = event.y

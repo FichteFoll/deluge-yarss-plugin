@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
+from xml.etree.ElementTree import fromstring
 
 from deluge_yarss2._vendor.dateutil.tz import tzoffset
 
-from deluge_yarss2.atoma.utils import try_parse_date, try_parse_length
+from deluge_yarss2.atoma.utils import get_int, try_parse_date, try_parse_length
 
 
 def test_try_parse_date():
@@ -24,6 +25,14 @@ def test_try_parse_date():
 
     expected = datetime(2018, 10, 10, 18, 0, tzinfo=timezone.utc)
     assert try_parse_date('Web, 10 Oct 2018 18:00:00 +0000') == expected
+
+    assert try_parse_date('2020-01-01T00:00:00+25:00') is None
+
+
+def test_get_int():
+    element = fromstring('<channel><ttl>60</ttl><width>abc</width></channel>')
+    assert get_int(element, 'ttl') == 60
+    assert get_int(element, 'width') is None
 
 
 def test_try_parse_length():

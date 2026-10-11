@@ -40,8 +40,6 @@ def get_default_subscriptions(count):
             last_match=deluge_yarss2.util.common.get_default_date().isoformat(),
             rssfeed_key="0",
             key=str(i),
-            regex_include=None,
-            regex_exclude=None,
         )
     return subscriptions
 

@@ -13,6 +13,8 @@
 # the additional special exception to link portions of this program with the OpenSSL library.
 # See LICENSE for more details.
 #
+import copy
+
 from twisted.internet import defer
 
 import deluge.component as component
@@ -25,11 +27,12 @@ from deluge_yarss2.util.common import get_resource, get_value_in_selected_row
 from deluge_yarss2.util.gtkui_log import GTKUILogger
 from deluge_yarss2.util.http import encode_cookie_values
 
-from .common import Gtk, popup_gtk_menu
+from .common import Gdk, Gtk, popup_gtk_menu
 from .dialog_cookie import DialogCookie
 from .dialog_email_message import DialogEmailMessage
 from .dialog_rssfeed import DialogRSSFeed
 from .dialog_subscription import DialogSubscription
+from .markup import escape
 
 
 class GtkUI(Gtk3PluginBase):
@@ -43,6 +46,10 @@ class GtkUI(Gtk3PluginBase):
         self.plugins_enabled_changed("Label")
 
     def disable(self):
+        client.deregister_event_handler("YARSSConfigChangedEvent", self.cb_on_config_changed_event)
+        client.deregister_event_handler("GtkUILogMessageEvent", self.cb_on_log_message_arrived_event)
+        client.deregister_event_handler("PluginEnabledEvent", self.plugins_enabled_changed)
+        client.deregister_event_handler("PluginDisabledEvent", self.plugins_enabled_changed)
         component.get("Preferences").remove_page("YaRSS2")
         component.get("PluginManager").deregister_hook("on_apply_prefs", self.on_apply_prefs)
         component.get("PluginManager").deregister_hook("on_show_prefs", self.on_show_prefs)
@@ -651,7 +658,7 @@ class GtkUI(Gtk3PluginBase):
     def on_button_copy_cookie_to_clipboard(self, menuitem):
         cookie = self.get_value_in_selected_row(self.cookies_treeview, self.cookies_store, column_index=3)
         if cookie is not None:
-            Gtk.clipboard_get().set_text(cookie)
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(cookie, -1)
 
     def get_value_in_selected_row(self, treeview, store, column_index=0):
         """Helper to get the value at index 'index_column' of the selected element
@@ -677,23 +684,24 @@ class GtkUI(Gtk3PluginBase):
             y = int(event.y)
             time = event.time
             pthinfo = treeview.get_path_at_pos(x, y)
+            if pthinfo is None:
+                return False
             model = treeview.get_model()
             it = model.get_iter(pthinfo[0])
             link = model.get_value(it, 0)
             if link is None:
                 return False
-            if pthinfo is not None:
-                path, col, cellx, celly = pthinfo
-                treeview.grab_focus()
-                # Only show popup when right clicking a selected file
-                if not treeview.get_selection().iter_is_selected(it):
-                    return True
-                if popupmenu_multi_selection is not None and treeview.get_selection().count_selected_rows() > 1:
-                    popupmenu_multi_selection.popup(None, None, None, event.button, time, data=path)
-                    popupmenu_multi_selection.show_all()
-                else:
-                    popupmenu_single_selection.popup(None, None, None, event.button, time, data=path)
-                    popupmenu_single_selection.show_all()
+            path, col, cellx, celly = pthinfo
+            treeview.grab_focus()
+            # Only show popup when right clicking a selected file
+            if not treeview.get_selection().iter_is_selected(it):
+                return True
+            if popupmenu_multi_selection is not None and treeview.get_selection().count_selected_rows() > 1:
+                popupmenu_multi_selection.popup(None, None, None, None, event.button, time)
+                popupmenu_multi_selection.show_all()
+            else:
+                popupmenu_single_selection.popup(None, None, None, None, event.button, time)
+                popupmenu_single_selection.show_all()
             return True
 
     def create_cookies_columns(self, treeview):
@@ -776,7 +784,12 @@ class GtkUI(Gtk3PluginBase):
                 self.save_subscription(self.subscriptions[key])
             else:
                 edit_subscription_dialog = DialogSubscription(
-                    self, self.log, self.subscriptions[key], self.rssfeeds, self.email_messages, self.cookies
+                    self,
+                    self.log,
+                    copy.deepcopy(self.subscriptions[key]),
+                    self.rssfeeds,
+                    self.email_messages,
+                    self.cookies,
                 )
                 edit_subscription_dialog.show()
 
@@ -832,7 +845,7 @@ class GtkUI(Gtk3PluginBase):
                 self.rssfeeds[key]["active"] = not self.rssfeeds[key]["active"]
                 self.save_rssfeed(self.rssfeeds[key])
             else:
-                edit_rssfeed_dialog = DialogRSSFeed(self, self.rssfeeds[key])
+                edit_rssfeed_dialog = DialogRSSFeed(self, copy.deepcopy(self.rssfeeds[key]))
                 edit_rssfeed_dialog.show()
 
     def on_rssfeed_listitem_activated(self, treeview):
@@ -865,7 +878,7 @@ class GtkUI(Gtk3PluginBase):
                 self.email_messages[key]["active"] = not self.email_messages[key]["active"]
                 self.save_email_message(self.email_messages[key])
             else:
-                edit_message_dialog = DialogEmailMessage(self, self.email_messages[key])
+                edit_message_dialog = DialogEmailMessage(self, copy.deepcopy(self.email_messages[key]))
                 edit_message_dialog.show()
 
     def on_button_delete_message_clicked(self, button):
@@ -880,7 +893,7 @@ class GtkUI(Gtk3PluginBase):
                 subscriptions_with_notification.append(self.subscriptions[key]["name"])
         # Any subscriptions that use this message?
         if subscriptions_with_notification:
-            subscription_titles = "".join([f"* {title}\n" for title in subscriptions_with_notification])
+            subscription_titles = "".join([f"* {escape(title)}\n" for title in subscriptions_with_notification])
             md = Gtk.MessageDialog(
                 component.get("Preferences").pref_dialog,
                 Gtk.DialogFlags.DESTROY_WITH_PARENT,
@@ -929,7 +942,7 @@ class GtkUI(Gtk3PluginBase):
                 self.cookies[key]["active"] = not self.cookies[key]["active"]
                 self.save_cookie(self.cookies[key])
             else:
-                dialog_cookie = DialogCookie(self, self.cookies[key])
+                dialog_cookie = DialogCookie(self, copy.deepcopy(self.cookies[key]))
                 dialog_cookie.show()
 
     def on_button_delete_cookie_clicked(self, button):

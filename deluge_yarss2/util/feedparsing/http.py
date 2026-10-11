@@ -39,14 +39,6 @@ try:
     import base64, binascii
 except ImportError:
     base64 = binascii = None
-else:
-    # Python 3.1 deprecated decodestring in favor of decodebytes
-    #_base64decode = getattr(base64, 'decodebytes', base64.decodestring)
-    # Above fix is broken in python 3.9 when decodestring was removed
-    try:
-        _base64decode= base64.decodestring
-    except:
-        _base64decode = base64.decodebytes
 
 
 from .datetimes import _parse_date
@@ -101,10 +93,16 @@ class _FeedURLHandler(urllib.request.HTTPDigestAuthHandler, urllib.request.HTTPR
         if base64 is None or 'Authorization' not in req.headers \
                           or 'WWW-Authenticate' not in headers:
             return self.http_error_default(req, fp, code, msg, headers)
-        auth = _base64decode(req.headers['Authorization'].split(' ')[1])
-        user, passw = auth.split(':')
-        realm = re.findall('realm="([^"]*)"', headers['WWW-Authenticate'])[0]
+        auth = base64.b64decode(req.headers['Authorization'].split(' ')[1]).decode('utf-8')
+        user, passw = auth.split(':', 1)
+        realms = re.findall('realm="([^"]*)"', headers['WWW-Authenticate'])
+        if not realms:
+            return self.http_error_default(req, fp, code, msg, headers)
+        realm = realms[0]
         self.add_password(realm, host, user, passw)
+        # The digest header is added as an unredirected header,
+        # which the regular Basic header would take precedence over.
+        req.remove_header('Authorization')
         retry = self.http_error_auth_reqed('www-authenticate', host, req, headers)
         self.reset_retry_count()
         return retry
@@ -165,13 +163,12 @@ def get(url, etag=None, modified=None, agent=None, referrer=None, handlers=None,
     # Test for inline user:password credentials for HTTP basic auth
     auth = None
     if base64 and not url.startswith('ftp:'):
-        urltype, rest = urllib.parse.splittype(url)
-        realhost, rest = urllib.parse.splithost(rest)
-        if realhost:
-            user_passwd, realhost = urllib.parse.splituser(realhost)
-            if user_passwd:
-                url = '%s://%s%s' % (urltype, realhost, rest)
-                auth = base64.standard_b64encode(user_passwd).strip()
+        # urlsplit replaces the deprecated splittype/splithost/splituser.
+        parts = urllib.parse.urlsplit(url)
+        user_passwd, _, realhost = parts.netloc.rpartition('@')
+        if user_passwd:
+            url = urllib.parse.urlunsplit(parts._replace(netloc=realhost))
+            auth = base64.standard_b64encode(user_passwd.encode('utf-8')).decode('ascii')
 
     # iri support
     if not isinstance(url, bytes_):

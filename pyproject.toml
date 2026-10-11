@@ -81,6 +81,8 @@ markers = [
     "label: Test GUI with label plugin",
 ]
 addopts = ["--reactor=default", "-m", "not gui and not label"]
+# Unclosed files and sockets in tests usually mean the same leak in production code.
+filterwarnings = ["error::ResourceWarning"]
 
 [tool.ruff]
 line-length = 120

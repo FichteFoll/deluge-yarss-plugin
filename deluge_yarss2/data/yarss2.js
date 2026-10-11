@@ -23,7 +23,7 @@ Deluge.ux.preferences.YaRSS2Page = Ext.extend(Ext.Panel, {
 
     initComponent: function() {
         Deluge.ux.preferences.YaRSS2Page.superclass.initComponent.call(this);
-        fieldset = this.add({
+        var fieldset = this.add({
             xtype: 'fieldset',
             border: false,
             title: _('YaRSS2 Preferences'),

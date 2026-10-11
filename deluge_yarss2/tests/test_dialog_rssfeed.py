@@ -57,9 +57,26 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         dialog = DialogRSSFeed(dummy, rssfeed)
         dialog.dialog = dummy
         dialog.glade.get_object("txt_name").set_text("Test2")
+        dialog.glade.get_object("checkbox_verify_tls").set_active(False)
         dialog.on_button_save_clicked()
 
-        # Should test the values that are saved
+        self.assertEqual(rssfeed["name"], "Test2")
+        self.assertIs(rssfeed["verify_tls"], False)
+
+    def test_create_dummy_feed(self):
+        """Opening the dummy feed (key=DUMMY_RSSFEED_KEY) must not raise"""
+        dummy = DummyClass()
+        rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config(key=deluge_yarss2.yarss_config.DUMMY_RSSFEED_KEY)
+        DialogRSSFeed(dummy, rssfeed)
+
+    def test_get_data_fields_site_from_stripped_url(self):
+        dummy = DummyClass()
+        dialog = DialogRSSFeed(dummy, self.test_rssfeed)
+        # A leading no-break space is not stripped by urlparse, only by str.strip
+        dialog.glade.get_object("txt_url").set_text("\u00a0 http://example.org/rss ")
+        data = dialog.get_data_fields()
+        self.assertEqual(data["url"], "http://example.org/rss")
+        self.assertEqual(data["site"], "example.org")
 
     def test_populate_data_fields(self):
         dummy = DummyClass()
@@ -71,6 +88,7 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         rssfeed["update_interval"] = 10
         rssfeed["site"] = urlparse.urlparse(url).netloc
         rssfeed["obey_ttl"] = False
+        rssfeed["verify_tls"] = False
 
         cookies = {"uid": "92323", "passkey": "aksdf9798d767sadf8678as6df9df"}
         dummy.rssfeed = rssfeed
@@ -81,6 +99,8 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         self.assertEqual(data["name"], rssfeed["name"])
         self.assertEqual(data["url"], rssfeed["url"])
         self.assertEqual(data["obey_ttl"], rssfeed["obey_ttl"])
+        self.assertFalse(dialog.glade.get_object("checkbox_verify_tls").get_active())
+        self.assertIs(data["verify_tls"], False)
         self.assertEqual(data["update_interval"], rssfeed["update_interval"])
         self.assertEqual(data["site"], rssfeed["site"])
         cookies_hdr = http.get_cookie_header(cookies)

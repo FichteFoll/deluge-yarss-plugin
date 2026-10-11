@@ -1,7 +1,9 @@
+import datetime
 import json
 import os
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -51,3 +53,56 @@ class CommonUtilTestCase(unittest.TestCase):
         self.assertTrue(first.endswith(os.path.join("data", "yarss2.js")), first)
         self.assertTrue(first_exists)
         self.assertEqual(first, second)
+
+    def test_isodate_to_datetime_unparsable_date_logs_warning(self):
+        with self.assertLogs("deluge_yarss2.util.common", "WARNING") as cm:
+            result = common.isodate_to_datetime("not a date")
+        self.assertEqual(result, common.get_default_date())
+        self.assertIn("isodate_to_datetime error", cm.output[0])
+        self.assertIn("Unknown string format", cm.output[0])
+
+    def test_isodate_to_datetime_keeps_utc_offset(self):
+        result = common.isodate_to_datetime("2020-03-29T10:00:00+02:00")
+        self.assertEqual(result, datetime.datetime(2020, 3, 29, 8, 0, tzinfo=datetime.UTC))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(hours=2))
+
+    def test_isodate_to_datetime_assigns_utc_to_naive_date(self):
+        result = common.isodate_to_datetime("2020-03-29T10:00:00")
+        self.assertEqual(result, datetime.datetime(2020, 3, 29, 10, 0, tzinfo=datetime.UTC))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(0))
+
+    def test_isodate_to_datetime_overflowing_date_returns_default_date(self):
+        with self.assertLogs("deluge_yarss2.util.common", "WARNING"):
+            result = common.isodate_to_datetime("9" * 30)
+        self.assertEqual(result, common.get_default_date())
+
+    def use_timezone(self, tz):
+        previous_tz = os.environ.get("TZ")
+
+        def restore_timezone():
+            if previous_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = previous_tz
+            time.tzset()
+
+        self.addCleanup(restore_timezone)
+        os.environ["TZ"] = tz
+        time.tzset()
+
+    def assert_close_to_now(self, dt):
+        self.assertLess(abs(dt - datetime.datetime.now(datetime.UTC)), datetime.timedelta(seconds=1))
+
+    def test_get_current_date_is_aware_and_denotes_now(self):
+        # POSIX zone at UTC+05:30, independent of the installed zone database
+        self.use_timezone("YST-05:30")
+        result = common.get_current_date()
+        self.assertEqual(result.utcoffset(), datetime.timedelta(hours=5, minutes=30))
+        self.assert_close_to_now(result)
+
+    def test_get_current_date_in_isoformat_parses_to_now(self):
+        self.use_timezone("YST-05:30")
+        result = common.isodate_to_datetime(common.get_current_date_in_isoformat())
+        self.assertEqual(result.utcoffset(), datetime.timedelta(hours=5, minutes=30))
+        self.assertEqual(result.microsecond, 0)
+        self.assert_close_to_now(result)
