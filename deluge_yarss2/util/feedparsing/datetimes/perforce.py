@@ -18,6 +18,8 @@ def _parse_date_perforce(aDateString):
     if m is None:
         return None
     dow, year, month, day, hour, minute, second, tz = m.groups()
+    if not 1 <= int(month) <= 12:
+        return None
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     dateString = "%s, %s %s %s %s:%s:%s %s" % (dow, day, months[int(month) - 1], year, hour, minute, second, tz)
     tm = rfc822.parsedate_tz(dateString)
