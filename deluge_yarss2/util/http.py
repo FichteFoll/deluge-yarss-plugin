@@ -113,8 +113,7 @@ def get_matching_cookies_dict(cookies, url):
     for key in cookies.keys():
         if not cookies[key]["active"]:
             continue
-        # Test url match
-        if url.find(cookies[key]["site"]) != -1:
+        if cookie_site_matches(cookies[key]["site"], url):
             for k2 in cookies[key]["value"].keys():
                 matching_cookies[k2] = cookies[key]["value"][k2]
     return matching_cookies
@@ -129,6 +128,33 @@ def get_cookie_header(cookies, url=None):
     if len(cookies) == 0:
         return {}
     return {"Cookie": encode_cookie_values(cookies)}
+
+
+def get_hostname(url_or_host):
+    """Returns the lowercased hostname of a URL or of a host with an optional port,
+    or None if there is none."""
+    if not url_or_host:
+        return None
+    # Without a scheme, urlsplit does not recognize the host as the network location.
+    if "://" not in url_or_host:
+        url_or_host = "http://" + url_or_host
+    try:
+        return urlparse.urlsplit(url_or_host).hostname
+    except ValueError:
+        return None
+
+
+def cookie_site_matches(site, url):
+    """Returns whether a cookie for site applies to url,
+    i.e. url's hostname equals the site's hostname or is a subdomain of it.
+    Both may be given as URL or as host with an optional port."""
+    cookie_host = get_hostname(site)
+    url_host = get_hostname(url)
+    if cookie_host:
+        cookie_host = cookie_host.lstrip(".")
+    if not cookie_host or not url_host:
+        return False
+    return url_host == cookie_host or url_host.endswith("." + cookie_host)
 
 
 def encode_cookie_values(cookies_dict):

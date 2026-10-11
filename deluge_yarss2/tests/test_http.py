@@ -82,6 +82,40 @@ class HTTPTestCase(unittest.TestCase):
         self.assertEqual(matching_cookies["key2"], cookies["0"]["value"]["key2"])
         self.assertFalse("key3" in matching_cookies)
 
+    def get_matching_cookie_keys(self, site, url):
+        cookies = {"0": deluge_yarss2.yarss_config.get_fresh_cookie_config()}
+        cookies["0"]["site"] = site
+        cookies["0"]["value"]["key"] = "value"
+        return list(http.get_matching_cookies_dict(cookies, url))
+
+    def test_get_matching_cookies_dict_matches_by_hostname(self):
+        cases = [
+            ("example.com", "http://example.com/rss"),
+            ("example.com", "https://tracker.example.com/download/1.torrent"),
+            ("EXAMPLE.com", "http://example.COM/rss"),
+            (".example.com", "http://tracker.example.com/rss"),
+            (".example.com", "http://example.com/rss"),
+            ("https://example.com/login", "http://tracker.example.com/rss"),
+            ("example.com", "example.com:8080"),
+            ("example.com:8080", "http://example.com/rss"),
+            ("example.com", "http://user:pass@example.com:8080/rss"),
+        ]
+        not_matching = [case for case in cases if not self.get_matching_cookie_keys(*case)]
+        self.assertEqual([], not_matching)
+
+    def test_get_matching_cookies_dict_rejects_other_hosts(self):
+        cases = [
+            ("example.com", "http://notexample.com/rss"),
+            ("example.com", "http://example.com.evil.tld/rss"),
+            ("example.com", "http://evil.tld/?x=example.com"),
+            ("example", "http://tracker.example.org/rss"),
+            ("tracker.example.com", "http://example.com/rss"),
+            ("", "http://example.com/rss"),
+            (".", "http://example.com/rss"),
+        ]
+        matching = [case for case in cases if self.get_matching_cookie_keys(*case)]
+        self.assertEqual([], matching)
+
     def test_url_fix(self):
         url = "http://de.wikipedia.org/wiki/Elf (Begriffsklärung)"
         expected = "http://de.wikipedia.org/wiki/Elf%20(Begriffskl%C3%A4rung)"
