@@ -10,7 +10,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
-authors = [{ name = "Bro", email = "bro.devel+yarss2@gmail.com" }]
+authors = [
+    { name = "Bro", email = "bro.devel+yarss2@gmail.com" },
+    { name = "FichteFoll", email = "fichtefoll2@googlemail.com" },
+]
 classifiers = [
     "Framework :: Twisted",
     "Programming Language :: Python :: 3",
