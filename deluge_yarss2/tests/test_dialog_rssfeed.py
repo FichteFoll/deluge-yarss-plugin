@@ -69,6 +69,15 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config(key=deluge_yarss2.yarss_config.DUMMY_RSSFEED_KEY)
         DialogRSSFeed(dummy, rssfeed)
 
+    def test_get_data_fields_site_from_stripped_url(self):
+        dummy = DummyClass()
+        dialog = DialogRSSFeed(dummy, self.test_rssfeed)
+        # A leading no-break space is not stripped by urlparse, only by str.strip
+        dialog.glade.get_object("txt_url").set_text("\u00a0 http://example.org/rss ")
+        data = dialog.get_data_fields()
+        self.assertEqual(data["url"], "http://example.org/rss")
+        self.assertEqual(data["site"], "example.org")
+
     def test_populate_data_fields(self):
         dummy = DummyClass()
         rssfeed = deluge_yarss2.yarss_config.get_fresh_rssfeed_config()

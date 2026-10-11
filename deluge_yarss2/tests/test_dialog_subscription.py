@@ -18,11 +18,12 @@ import deluge.common
 import deluge.component as component
 import deluge.config
 import deluge.ui.client
+from deluge.error import DelugeError
 
 import deluge_yarss2.gtk3ui.dialog_subscription
 import deluge_yarss2.util.common
 from deluge_yarss2 import yarss_config
-from deluge_yarss2.gtk3ui.dialog_subscription import DialogSubscription
+from deluge_yarss2.gtk3ui.dialog_subscription import DialogSubscription, get_viewable_result
 from deluge_yarss2.tests import common as tests_common
 from deluge_yarss2.util import logging
 
@@ -150,6 +151,44 @@ class DialogSubscriptionTestCase(ComponentTestBase):
             deferred = subscription_dialog.perform_rssfeed_selection()
             deferred.addCallback(callback_func, subscription_dialog)
             return deferred
+
+    def test_rssfeed_fetch_error_shown_in_status(self):
+        config = self.get_test_config()
+        error_message = "Failed to fetch RSS Feed 'Test RSS Feed': timed out"
+        subscription_dialog = DialogSubscription(
+            TestGTKUIBase(),  # GTKUI
+            self.log,  # logger
+            yarss_config.get_fresh_subscription_config(),
+            config["rssfeeds"],
+            {},  # self.email_messages,
+            {},
+        )  # self.cookies)
+
+        with mock.patch.object(subscription_dialog, "get_rssfeed_parsed") as mocked_func:
+            mocked_func.return_value = defer.succeed(None)
+            subscription_dialog.setup()
+            subscription_dialog.get_object("combobox_rssfeeds").set_active(0)
+            subscription_dialog.dialog = mock.Mock(**{"get_visible.return_value": True})
+
+            mocked_func.return_value = defer.fail(DelugeError(error_message))
+            deferred = subscription_dialog.perform_rssfeed_selection()
+
+        def verify_status(result):
+            label_status = subscription_dialog.get_object("label_status")
+            self.assertEqual(label_status.get_text(), error_message)
+
+        return deferred.addCallback(verify_status)
+
+    def test_viewable_result_shows_page_text_of_unparsable_response(self):
+        raw_result = {
+            "raw_result": "Too many requests",
+            "bozo": 1,
+            "feed": {},
+            "items": [],
+            "bozo_exception": "not a feed",
+            "parser": "atoma",
+        }
+        self.assertEqual(get_viewable_result(raw_result), "Too many requests")
 
     def test_search(self):
 

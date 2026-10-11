@@ -720,6 +720,9 @@ class DialogSubscriptionGUI:
 
 
 def get_viewable_result(rssfeed_parsed):
+    page_text = rssfeed_parsed.get("raw_result")
+    if isinstance(page_text, str):
+        return page_text
     if "summary" not in rssfeed_parsed["feed"]:
         return ""
     cleaned = rssfeed_parsed["feed"]["summary"]
@@ -796,8 +799,13 @@ class DialogSubscription(DialogSubscriptionGUI):
     def perform_rssfeed_selection(self):
         rssfeed_key = self.get_current_rssfeed_key()
         deferred = self.get_and_update_rssfeed_results(rssfeed_key)
-        deferred.addCallback(self.update_matching_view_with_rssfeed_results)
+        deferred.addCallbacks(self.update_matching_view_with_rssfeed_results, self.show_rssfeed_fetch_error)
         return deferred
+
+    def show_rssfeed_fetch_error(self, failure):
+        if not self.dialog.get_visible():
+            return
+        self.get_object("label_status").set_text(failure.getErrorMessage())
 
     def perform_search(self):
         match_option_dict = self.get_search_settings()

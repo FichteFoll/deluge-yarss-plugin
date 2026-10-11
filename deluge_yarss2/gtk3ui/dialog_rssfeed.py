@@ -84,7 +84,7 @@ class DialogRSSFeed:
         url = self.glade.get_object("txt_url").get_text()
         # Handle spaces in url
         rssfeed_data["url"] = re.sub(r"\s", "%20", url.strip())
-        rssfeed_data["site"] = urlparse.urlparse(url).netloc
+        rssfeed_data["site"] = urlparse.urlparse(rssfeed_data["url"]).netloc
         rssfeed_data["name"] = self.glade.get_object("txt_name").get_text()
         rssfeed_data["update_interval"] = int(self.glade.get_object("spinbutton_updatetime").get_value())
         rssfeed_data["update_on_startup"] = self.glade.get_object("checkbutton_on_startup").get_active()
