@@ -1,0 +1,123 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "YaRSS2"
+dynamic = ["version"]
+description = "Yet another RSS 2"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Bro", email = "bro.devel+yarss2@gmail.com" }]
+classifiers = [
+    "Framework :: Twisted",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications :: File Sharing",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/FichteFoll/deluge-yarss-plugin"
+Issues = "https://github.com/FichteFoll/deluge-yarss-plugin/issues"
+Changelog = "https://github.com/FichteFoll/deluge-yarss-plugin/blob/master/CHANGELOG.md"
+
+[project.entry-points."deluge.plugin.core"]
+YaRSS2 = "deluge_yarss2:CorePlugin"
+
+[project.entry-points."deluge.plugin.gtk3ui"]
+YaRSS2 = "deluge_yarss2:Gtk3UIPlugin"
+
+[project.entry-points."deluge.plugin.web"]
+YaRSS2 = "deluge_yarss2:WebUIPlugin"
+
+[dependency-groups]
+dev = [
+    "deluge>=2.2,<2.3",
+    # PyPI wheels exist only for 2.0.x (up to cp313).
+    "libtorrent>=2.0,<2.1",
+    # Stock Deluge 2.2.0 imports pkg_resources, which setuptools 82 removed.
+    "setuptools<82",
+    # 26.3 removed crypto.X509Req, which deluged needs at startup.
+    "pyopenssl<26.3",
+    "pytest",
+    "pytest-twisted",
+    "ruff",
+]
+gui = ["pygobject"]
+vendor = ["vendoring==1.4.0", "pip"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.setuptools]
+dynamic.version = { attr = "deluge_yarss2.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["deluge_yarss2*"]
+exclude = ["deluge_yarss2.tests*"]
+
+[tool.setuptools.package-data]
+# The vendored tree carries license files and dateutil's zoneinfo tarball besides the modules.
+deluge_yarss2 = ["data/*", "atoma/LICENSE", "util/feedparsing/**/LICENSE", "_vendor/**/*"]
+
+[tool.setuptools.exclude-package-data]
+# Keep bytecode from the working tree out of the wheel.
+# Keyed for all packages, since manifest files belong to the innermost package, e.g. `deluge_yarss2._vendor`.
+"*" = ["*.pyc"]
+
+[tool.pytest.ini_options]
+testpaths = ["deluge_yarss2/tests"]
+markers = [
+    "gui: Test GUI",
+    "label: Test GUI with label plugin",
+]
+addopts = ["--reactor=default", "-m", "not gui and not label"]
+
+[tool.ruff]
+line-length = 120
+extend-exclude = [
+    "deluge_yarss2/_vendor",
+    "deluge_yarss2/atoma",
+    "deluge_yarss2/tests/atoma",
+    "deluge_yarss2/util/feedparsing",
+]
+builtins = ["_", "__request__"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Module name mirrors the GTK widget class it defines, as upstream GTK code does.
+"deluge_yarss2/gtk3ui/CellRendererPango.py" = ["N999"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["deluge_yarss2"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "deluge",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.isort.sections]
+deluge = ["deluge"]
+
+[tool.vendoring]
+destination = "deluge_yarss2/_vendor/"
+requirements = "deluge_yarss2/_vendor/vendor.txt"
+namespace = "deluge_yarss2._vendor"
+protected-files = ["__init__.py", "vendor.txt"]
+
+[tool.vendoring.transformations]
+drop = ["*.dist-info", "bin/"]
+
+[tool.vendoring.license.directories]
+python_dateutil = "dateutil"

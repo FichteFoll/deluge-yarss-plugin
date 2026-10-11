@@ -1,22 +1,39 @@
 ## Changelog ##
 
+References of the form `bendikro#<num>` refer to issues
+in the [original repository on Bitbucket](https://bitbucket.org/bendikro/deluge-yarss-plugin).
+Bitbucket has since discontinued its issue tracker,
+so these issues are no longer available.
+
+Unreleased
+
+* Moved the project to GitHub
+* Raised the minimum supported Python version to 3.11
+* Replaced setup.py, tox, flake8 and isort with pyproject.toml, uv, ruff and GitHub Actions
+* Renamed the package from yarss2 to deluge_yarss2
+* Fixed loading the plugin without pkg_resources, which setuptools 82 removed and the importlib-based plugin loader does not support
+* Fixed the Web UI plugin entry point
+* Fixed compatibility with Python 3.12 and 3.13
+* Replaced requests and BeautifulSoup with the Python standard library
+* Refreshed the vendored third-party libraries
+
 v2.1.5 - 2021-03-21
 
-* Fix #63: Fix error on python 3.9 due to bug in feedparser
+* Fix bendikro#63: Fix error on python 3.9 due to bug in feedparser
 
 v2.1.4 - 2019-10-23
 
-* Fix #53: Fix bug introduced in v2.1.2 where showing the RSS feed results was
-           broken in thin client mode.
-* Fix #48: Reduce the minimum updating interval from 5 to 1 minute.
+* Fix bendikro#53: Fix bug introduced in v2.1.2 where showing the RSS feed results was
+  broken in thin client mode.
+* Fix bendikro#48: Reduce the minimum updating interval from 5 to 1 minute.
 
 v2.1.3 - 2019-10-17
 
-* Fix #43: Unable to add Cookie-information
+* Fix bendikro#43: Unable to add Cookie-information
 
 v2.1.2 - 2019-10-17
 
-* Fix #53: Download RSS feeds via the plugin core (on the server)
+* Fix bendikro#53: Download RSS feeds via the plugin core (on the server)
 
 v2.1.1 - 2019-10-15
 
@@ -28,7 +45,7 @@ v2.1.0 - 2019-10-09
 
 v2.0.0 - 2019-10-04
 
-* Fix #54: Add support for Deluge 2.X
+* Fix bendikro#54: Add support for Deluge 2.X
 * Replaced [feedparser](https://github.com/kurtmckee/feedparser) with
   [atoma](https://github.com/NicolasLM/atoma) for parsing RSS feeds
 
@@ -36,20 +53,20 @@ Note: YaRSS2 v2.X does not support Deluge 1.3.X
 
 v1.4.3 - 2015-11-14
 
-* Fix #10: Option to make YaRSS2 fetch subscriptions on startup
-* Fix #13: Moved sending test email from daemon instead of client
-* Fix #14: Problem with the ISO formating of 'Last matched' timestamp
-* Fix #15: python traceback when RSS feed has no items
-* Fix #20: An exception was thrown by the RSS update handler
+* Fix bendikro#10: Option to make YaRSS2 fetch subscriptions on startup
+* Fix bendikro#13: Moved sending test email from daemon instead of client
+* Fix bendikro#14: Problem with the ISO formating of 'Last matched' timestamp
+* Fix bendikro#15: python traceback when RSS feed has no items
+* Fix bendikro#20: An exception was thrown by the RSS update handler
 
 v1.4.2 - 2015-11-11
 
-* Fixed #26: Labels don't stay after restart
-* Fixed #27: "Add torrent" on right click menu in subscription dialog gives stacktrace
+* Fixed bendikro#26: Labels don't stay after restart
+* Fixed bendikro#27: "Add torrent" on right click menu in subscription dialog gives stacktrace
 
 v1.4.1 - 2015-10-06
 
-* Fixed #24: Adding a second feed/subscription deleted previous
+* Fixed bendikro#24: Adding a second feed/subscription deleted previous
 
 v1.4.0 - 2015-09-29
 
