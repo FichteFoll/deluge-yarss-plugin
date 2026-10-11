@@ -13,7 +13,7 @@ from twisted.trial import unittest
 
 import deluge_yarss2.yarss_config
 from deluge_yarss2.torrent_handling import TorrentHandler
-from deluge_yarss2.util import logging
+from deluge_yarss2.util import logging, yarss_email
 from deluge_yarss2.util.yarss_email import send_email, send_torrent_email
 
 from . import common as test_common
@@ -158,6 +158,17 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         self.expected_messsage_multipart.append("MIME-Version: 1.0")
         self.expected_messsage_multipart.append("Content-Transfer-Encoding: base64")
 
+    def record_sent_email_data(self):
+        """Record a copy of the data each `send_email` call receives, then send it."""
+        sent_email_data = []
+
+        def recording_send_email(email_conf, server_conf):
+            sent_email_data.append(dict(email_conf))
+            return send_email(email_conf, server_conf)
+
+        self.patch(yarss_email, "send_email", recording_send_email)
+        return sent_email_data
+
     def verify_email_multipart(self, email_message, email, email_config, email_data):
         """
         email_message - a test_yarss_email.Message
@@ -259,10 +270,11 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
         subscription = {"name": "Subscription name"}
         torrent_names = ["Torrent 1", "Torrent 2"]
         self.email["message"] = "Hi\n\nThis is a test message. \n\n$torrentlist\n\nRegards"
-        email_data = {}
+        sent_email_data = self.record_sent_email_data()
 
         def callback(args):
             message = smtp.get_emails().pop()
+            email_data = sent_email_data[-1]
             self.verify_email_multipart(message, self.email, self.email_config, email_data)
             # Verify that the torrent names have been inserted into the message
             self.assertTrue(email_data["message"].find(torrent_names[0]) != -1)
@@ -278,7 +290,6 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             subscription_data=subscription,
             deferred=False,
             callback_func=callback,
-            email_data=email_data,
         )
         self.assertTrue(has_sent)
         # Send email in
@@ -288,6 +299,33 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             torrent_name_list=torrent_names,
             deferred=True,
             callback_func=callback,
-            email_data=email_data,
         )
         return d
+
+    def test_send_torrent_email_builds_new_data_per_call(self):
+        sent_email_data = self.record_sent_email_data()
+        self.email["message"] = "Hi\n\n$torrentlist\n\nRegards"
+
+        send_torrent_email(self.email_config, self.email, torrent_name_list=["Torrent 1"])
+        send_torrent_email(self.email_config, self.email)
+
+        self.assertIn("message_html", sent_email_data[0])
+        self.assertNotIn("message_html", sent_email_data[1])
+        self.assertEqual(sent_email_data[1]["message"], self.email["message"])
+
+    def test_send_torrent_email_escapes_html_part(self):
+        sent_email_data = self.record_sent_email_data()
+        subscription = {"name": "Tom & Jerry"}
+        self.email["subject"] = "New in $subscription_title"
+        self.email["message"] = "1 < 2 in $subscription_title:\n$torrentlist\nBye"
+
+        send_torrent_email(
+            self.email_config, self.email, subscription_data=subscription, torrent_name_list=["<b>x</b>"]
+        )
+
+        email_data = sent_email_data[0]
+        self.assertEqual(email_data["subject"], "New in Tom & Jerry")
+        self.assertEqual(email_data["message"], "1 < 2 in Tom & Jerry:\n * <b>x</b>\n\nBye")
+        self.assertEqual(
+            email_data["message_html"], "1 &lt; 2 in Tom &amp; Jerry:<br/><ul><li>&lt;b&gt;x&lt;/b&gt; </li></ul>Bye"
+        )
