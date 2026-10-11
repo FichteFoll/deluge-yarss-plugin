@@ -31,6 +31,25 @@ so these issues are no longer available.
 * Recognized B, KB, KiB, MiB, GiB, TB and TiB sizes in item descriptions, interpreted as binary and reported in KiB/MiB/GiB/TiB like the Deluge client
 * The warning for unparsable dates now includes the parse error detail
 * Several fixes were ported from the TSA3000 and trasherdk forks
+* Fixed feed item dates with a UTC offset being compared as if they were UTC wall time; on the first update after upgrading the plugin, feeds with a non-zero offset may skip items published within the offset after the last match (positive offsets) or re-add up to the offset's hours worth of old items (negative offsets), a one-time effect that cannot be migrated
+* Fixed feeds with a non-integer TTL or image width, or a publish date with an out-of-range UTC offset, having all of their items dropped instead of just the malformed value
+* Fixed a crash when a tracker's digest authentication challenge had no realm
+* Fixed unparsable feed responses, including broken RSS documents without a channel, raising an error instead of being reported as a bozo result
+* Fixed the log message for matching feed items without a publish date claiming an old timestamp, instead of explaining that the item has no publish date and that enabling "Ignore timestamp" would add it
+* Fixed a feed's update timer stopping for good after an error while adding its matched torrents
+* Fixed a crash when a subscription referenced a deleted email notification message; the notification is now skipped with a warning
+* Fixed thread-unsafe calls to reactor APIs for TTL rescheduling and event emission from feed and email worker threads
+* Fixed the add_torrent RPC downloading the torrent file on the reactor thread, which could stall the daemon when the server was slow
+* Fixed notification emails carrying over the content of an earlier notification when several fired in the same run, and feed titles and subscription names not being HTML-escaped in the HTML part
+* Fixed SMTP connections being left open and never timing out; they now close on every path and time out after 30 seconds
+* Fixed sending an html-only notification email raising a KeyError
+* Fixed feed titles and subscription names with `&` or `<` not rendering correctly in the subscription dialog, and regex match highlighting using the wrong offsets for titles with non-ASCII characters
+* Fixed crashes in the GTK UI when right-clicking the cookie list, copying a cookie to the clipboard, right-clicking below the rows of the matching list, or opening the dummy feed
+* Fixed `fieldset` being an implicit global in the Web UI script `data/yarss2.js`
+* Fixed the subscription dialog not showing feed fetch errors, and its "show as text" view not showing the cleaned page text of an unparsable response
+* Fixed the feed dialog deriving the site name from an unstripped URL
+* Fixed cancelling a dialog in the GTK UI still saving its edits to the cached configuration
+* Fixed disabling the GTK UI plugin leaving its event handlers registered
 
 ## v2.1.5 - 2021-03-21
 
