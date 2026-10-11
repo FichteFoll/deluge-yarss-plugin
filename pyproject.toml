@@ -44,7 +44,7 @@ dev = [
     # Stock Deluge 2.2.0 imports pkg_resources, which setuptools 82 removed.
     "setuptools<82",
     # 26.3 removed crypto.X509Req, which deluged needs at startup.
-    "pyopenssl<26.3",
+    "pyopenssl<26.5",
     "pytest",
     "pytest-twisted",
     "ruff",
