@@ -64,7 +64,7 @@ exclude = ["deluge_yarss2.tests*"]
 
 [tool.setuptools.package-data]
 # The vendored tree carries license files and dateutil's zoneinfo tarball besides the modules.
-deluge_yarss2 = ["data/*", "atoma/LICENSE", "_vendor/**/*"]
+deluge_yarss2 = ["data/*", "atoma/LICENSE", "util/feedparsing/**/LICENSE", "_vendor/**/*"]
 
 [tool.setuptools.exclude-package-data]
 # Keep bytecode from the working tree out of the wheel.

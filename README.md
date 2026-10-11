@@ -6,8 +6,6 @@ Author: Bro <bro.development@gmail.com>
 
 Based on YaRSS by Camillo Dell'mour.
 
-License: GPLv3
-
 ## Compatibility
 
 Deluge 2.2, both with the stock plugin loader and the importlib-based plugin loader.
@@ -98,3 +96,24 @@ and are excluded from linting and formatting.
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
+
+## Licensing
+
+YaRSS2 itself is licensed under the GNU General Public License version 3 or later,
+see [LICENSE](LICENSE).
+
+It bundles third-party code under GPL-compatible licenses,
+each with its license file next to the code:
+
+- `deluge_yarss2/atoma` is a fork of
+  [atoma](https://github.com/NicolasLM/atoma),
+  licensed under the MIT license.
+- `deluge_yarss2/util/feedparsing` is derived from
+  [feedparser](https://github.com/kurtmckee/feedparser),
+  licensed under the BSD 2-Clause license.
+  The exception is `datetimes/ambiguous.py`,
+  which was written for YaRSS2 and is licensed under the GPLv3.
+- The libraries vendored into `deluge_yarss2/_vendor`
+  carry their own license files there.
+  These are python-dateutil (Apache 2.0 and BSD 3-Clause),
+  six (MIT) and defusedxml (PSF 2.0).
