@@ -55,6 +55,9 @@ so these issues are no longer available.
 * Fixed "Set now" for a subscription's last matched timestamp storing local wall clock time labelled as UTC, which could skip or re-add items for users at a non-zero UTC offset; a feed's last update was also shown with the wrong offset; set the last match again for any subscription where it was set with "Set now" before this fix
 * Fixed a crash in the subscription dialog when the Label plugin is disabled, and a crash in the path chooser's completion list on pointer motion events
 * Fixed `$torrentlist` not being replaced in the HTML part of a notification email when it ended the message or was followed by other text on the same line
+* Scheduled feed updates now send `If-None-Match` / `If-Modified-Since` and skip downloading and parsing feeds the server reports as unchanged; the validators are kept in memory only
+* Added a "Maximum parallel feed fetches" setting (`max_concurrent_feeds`, default 1) that lets several feeds update at the same time; updates of the same feed never overlap
+* Fixed a feed's next update possibly starting before the previous update had saved its last match, which could add the same item twice
 
 ## v2.1.5 - 2021-03-21
 
