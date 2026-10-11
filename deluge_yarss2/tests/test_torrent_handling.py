@@ -15,6 +15,7 @@ from unittest import mock
 
 from twisted.trial import unittest
 
+from deluge.core.torrent import TorrentOptions
 from deluge.error import AddTorrentError
 
 import deluge_yarss2.torrent_handling
@@ -365,6 +366,35 @@ class TorrentHandlingTestCase(unittest.TestCase):
 
         self.assertFalse(result.success)
         self.assertEqual(test_component.added, [])
+
+    def test_add_torrent_applies_sequential_download_independently_of_auto_managed(self):
+        handler = TorrentHandler(self.log)
+        subscription_data = deluge_yarss2.yarss_config.get_fresh_subscription_config()
+        subscription_data["auto_managed"] = GeneralSubsConf.DEFAULT
+        subscription_data["sequential_download"] = GeneralSubsConf.ENABLED
+
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+            "torrent_download": TorrentDownload(),
+        }
+        handler.add_torrent(torrent_info)
+        added = test_component.added.pop()
+        self.assertTrue(added.options["sequential_download"] is True)
+
+        subscription_data["auto_managed"] = GeneralSubsConf.ENABLED
+        subscription_data["sequential_download"] = GeneralSubsConf.DEFAULT
+
+        torrent_info = {
+            "link": "http://url.com/file.torrent",
+            "site_cookies_dict": {},
+            "subscription_data": subscription_data,
+            "torrent_download": TorrentDownload(),
+        }
+        handler.add_torrent(torrent_info)
+        added = test_component.added.pop()
+        self.assertEqual(added.options["sequential_download"], TorrentOptions()["sequential_download"])
 
 
 class TorrentRequestHandler(BaseHTTPRequestHandler):

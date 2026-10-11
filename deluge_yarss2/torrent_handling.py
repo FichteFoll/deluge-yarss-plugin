@@ -120,7 +120,7 @@ class TorrentHandler:
                 options["auto_managed"] = GeneralSubsConf().get_boolean(subscription_data["auto_managed"])
             if (
                 "sequential_download" in subscription_data
-                and subscription_data["auto_managed"] != GeneralSubsConf.DEFAULT
+                and subscription_data["sequential_download"] != GeneralSubsConf.DEFAULT
             ):
                 options["sequential_download"] = GeneralSubsConf().get_boolean(subscription_data["sequential_download"])
             if subscription_data["prioritize_first_last_pieces"] != GeneralSubsConf.DEFAULT:
