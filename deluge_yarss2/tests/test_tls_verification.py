@@ -17,6 +17,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
+from twisted.internet import defer
 from twisted.trial import unittest
 
 from deluge.error import DelugeError
@@ -165,15 +166,17 @@ class CoreAddTorrentTLSTestCase(HTTPSServerTestCase):
         self.core.yarss_config.get_config.return_value = {"cookies": {}, "rssfeeds": {"0": self.rssfeed}}
         self.core.torrent_handler = TorrentHandler(log)
         # Stops before handing the download to Deluge's TorrentManager, which is not running.
-        self.core.torrent_handler.add_torrent = self.core.torrent_handler.get_torrent
+        self.core.torrent_handler.add_torrent = lambda torrent_info: torrent_info["torrent_download"]
 
+    @defer.inlineCallbacks
     def test_add_torrent_verifies_certificate(self):
-        download = self.core.add_torrent({"link": self.torrent_url, "rssfeed_key": "0"})
+        download = yield self.core.add_torrent({"link": self.torrent_url, "rssfeed_key": "0"})
         self.assertFalse(download["success"])
 
+    @defer.inlineCallbacks
     def test_add_torrent_without_verification(self):
         self.rssfeed["verify_tls"] = False
-        download = self.core.add_torrent({"link": self.torrent_url, "rssfeed_key": "0"})
+        download = yield self.core.add_torrent({"link": self.torrent_url, "rssfeed_key": "0"})
         self.assertTrue(download["success"])
 
 

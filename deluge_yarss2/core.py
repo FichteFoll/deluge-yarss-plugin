@@ -6,6 +6,8 @@
 # See LICENSE for more details.
 #
 
+from twisted.internet import threads
+
 from deluge.core.rpcserver import export
 from deluge.plugins.pluginbase import CorePluginBase
 
@@ -175,8 +177,14 @@ class Core(CorePluginBase):
             rssfeed_data = self.yarss_config.get_config()["rssfeeds"][torrent_info["rssfeed_key"]]
             torrent_info["user_agent"] = get_user_agent(rssfeed_data=rssfeed_data)
             torrent_info["verify_tls"] = rssfeed_data.get("verify_tls", True)
-        torrent_download = self.torrent_handler.add_torrent(torrent_info)
-        return torrent_download.to_dict()
+
+        def add_downloaded_torrent(torrent_download):
+            torrent_info["torrent_download"] = torrent_download
+            return self.torrent_handler.add_torrent(torrent_info).to_dict()
+
+        d = threads.deferToThread(self.torrent_handler.get_torrent, torrent_info)
+        d.addCallback(add_downloaded_torrent)
+        return d
 
     @export
     def get_completion_paths(self, value):
