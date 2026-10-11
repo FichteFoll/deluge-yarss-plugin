@@ -407,3 +407,24 @@ class YaRSS2TorrentEmailTestCase(unittest.TestCase):
             email_data["message_html"],
             "<b>Hi</b> 1 < 2 in Tom &amp; Jerry:<br/><ul><li>&lt;b&gt;x&lt;/b&gt; </li></ul>Bye",
         )
+
+    def test_send_torrent_email_replaces_torrentlist_at_end_of_message(self):
+        sent_email_data = self.record_sent_email_data()
+        self.email["message"] = "Hi\n$torrentlist"
+
+        send_torrent_email(self.email_config, self.email, torrent_name_list=["Torrent 1"])
+
+        email_data = sent_email_data[0]
+        self.assertEqual(email_data["message_html"], "Hi<br/><ul><li>Torrent 1 </li></ul>")
+
+    def test_send_torrent_email_replaces_torrentlist_followed_by_text(self):
+        sent_email_data = self.record_sent_email_data()
+        self.email["message"] = "Hi\n$torrentlist and more text\nBye"
+
+        send_torrent_email(self.email_config, self.email, torrent_name_list=["Torrent 1"])
+
+        email_data = sent_email_data[0]
+        self.assertEqual(
+            email_data["message_html"],
+            "Hi<br/><ul><li>Torrent 1 </li></ul> and more text<br/>Bye",
+        )

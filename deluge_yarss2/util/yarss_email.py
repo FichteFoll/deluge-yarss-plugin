@@ -136,7 +136,7 @@ def send_torrent_email(
         email_data["message"] = email_data["message"].replace("$torrentlist", torrentlist_plain)
         message_html = message_html.replace("\n", "<br/>")
         # A function replacement inserts the names literally; a string would expand backslash escapes in them.
-        email_data["message_html"] = re.sub(r"\$torrentlist(<br/>){1}?", lambda _: torrentlist_html, message_html)
+        email_data["message_html"] = re.sub(r"\$torrentlist(<br/>)?", lambda _: torrentlist_html, message_html)
 
     # Send email with twisted to avoid waiting
     if deferred:
