@@ -317,6 +317,10 @@ class RSSFeedHandler:
                 self.log.warning(message)
                 raise DelugeError(message)
             self.log.info(f"RSS Feed '{rssfeed_data['name']}' was not modified, using the cached items.")
+            # A 304 response may replace the validators, e.g. with a new ETag for the same content
+            for validator in ("etag", "modified"):
+                if parsed_feed.get(validator):
+                    cache_entry[validator] = parsed_feed[validator]
             return cache_entry["parsed_feed"]
 
         if parsed_feed["bozo"] == 0 and (parsed_feed.get("etag") or parsed_feed.get("modified")):

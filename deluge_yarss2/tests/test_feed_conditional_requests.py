@@ -21,6 +21,7 @@ log = logging.getLogger(plugin_tests_logger_name)
 
 FEED_PATH = "/feed.xml"
 ETAG = '"feed-v1"'
+REPLACED_ETAG = '"feed-v1-replaced"'
 LAST_MODIFIED = "Sun, 21 Oct 2012 21:47:35 GMT"
 
 FEED_BODY = b"""<?xml version="1.0" encoding="UTF-8" ?>
@@ -42,15 +43,16 @@ FEED_BODY = b"""<?xml version="1.0" encoding="UTF-8" ?>
 
 class ConditionalFeedRequestHandler(BaseHTTPRequestHandler):
     """Serves `FEED_BODY`, records the headers of each request in the server's `requests` list,
-    and answers `304 Not Modified` to a request whose `If-None-Match` matches the ETag.
+    and answers `304 Not Modified` to a request whose `If-None-Match` matches either ETag,
+    with the server's `not_modified_etag`.
     Sends the validators only if the server's `send_validators` is true."""
 
     def do_GET(self):  # noqa: N802
         # The `HTTPMessage` looks up header names case-insensitively, as urllib capitalizes them.
         self.server.requests.append(self.headers)
-        if self.server.send_validators and self.headers.get("If-None-Match") == ETAG:
+        if self.server.send_validators and self.headers.get("If-None-Match") in (ETAG, REPLACED_ETAG):
             self.send_response(304)
-            self.send_header("ETag", ETAG)
+            self.send_header("ETag", self.server.not_modified_etag)
             self.end_headers()
             return
         self.send_response(200)
@@ -89,6 +91,7 @@ class ConditionalFeedRequestsTestCase(unittest.TestCase):
         server = ThreadingHTTPServer(("127.0.0.1", 0), ConditionalFeedRequestHandler)
         server.requests = []
         server.send_validators = True
+        server.not_modified_etag = ETAG
         # A short poll interval keeps `shutdown`, which waits for the next poll, from slowing down every test.
         thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05})
         thread.start()
@@ -137,6 +140,16 @@ class ConditionalFeedRequestsTestCase(unittest.TestCase):
         self.assertEqual(first["ttl"], 30)
         self.assertEqual(second["ttl"], 30)
         self.assertIs(self.rssfeed["obey_ttl"], True)
+
+    def test_not_modified_response_replaces_the_etag(self):
+        self.server.not_modified_etag = REPLACED_ETAG
+        self.run_feed()
+        self.run_feed()
+        self.run_feed()
+
+        self.assert_conditional(self.server.requests[1])
+        self.assertEqual(self.server.requests[2].get("If-None-Match"), REPLACED_ETAG)
+        self.assertEqual(self.server.requests[2].get("If-Modified-Since"), LAST_MODIFIED)
 
     def test_changed_url_sends_no_validators(self):
         self.run_feed()
