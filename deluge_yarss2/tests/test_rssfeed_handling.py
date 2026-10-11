@@ -380,6 +380,19 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         parsed_feed = self.rssfeedhandler.get_rssfeed_parsed(rssfeed_data)
         self.assertTrue("items" in parsed_feed)
 
+    def test_fetch_and_parse_rssfeed_atom_malformed_values(self):
+        rss = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel>
+<title>Feed</title><link>http://example.org</link><description>Feed</description>
+<ttl>abc</ttl>
+<image><url>http://example.org/i.png</url><title>Feed</title><link>http://example.org</link><width>abc</width></image>
+<item><title>Item</title><link>http://example.org/1.torrent</link><pubDate>2020-01-01T00:00:00+25:00</pubDate></item>
+</channel></rss>"""
+        parsed_feed = rssfeed_handling.fetch_and_parse_rssfeed_atom(rss)
+        self.assertIsNone(parsed_feed["feed"]["ttl"])
+        self.assertEqual(["Item"], [item["title"] for item in parsed_feed["items"]])
+        self.assertNotIn("published_date", parsed_feed["items"][0])
+
     def test_get_rssfeed_parsed_server_error_message(self):
         file_url = deluge_yarss2.util.common.get_resource(
             "rarbg.to.rss.too_many_requests.html", path="tests/data/feeds/"

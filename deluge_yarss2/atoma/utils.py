@@ -76,7 +76,10 @@ def get_int(element: Element, name, optional: bool=True) -> Optional[int]:
     if text is None:
         return None
 
-    return int(text)
+    try:
+        return int(text)
+    except ValueError:
+        return None
 
 
 def get_datetime(element: Element, name,
@@ -91,6 +94,9 @@ def get_datetime(element: Element, name,
 def try_parse_date(date_str: str) -> Optional[datetime]:
     try:
         date = dateutil.parser.parse(date_str, fuzzy=True, tzinfos=tzinfos)
+        # dateutil accepts offsets of a day or more, which datetime
+        # rejects only once the offset is used, e.g. in isoformat()
+        date.utcoffset()
     except (ValueError, OverflowError):
         return None
 

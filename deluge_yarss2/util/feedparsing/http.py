@@ -95,7 +95,10 @@ class _FeedURLHandler(urllib.request.HTTPDigestAuthHandler, urllib.request.HTTPR
             return self.http_error_default(req, fp, code, msg, headers)
         auth = base64.b64decode(req.headers['Authorization'].split(' ')[1]).decode('utf-8')
         user, passw = auth.split(':', 1)
-        realm = re.findall('realm="([^"]*)"', headers['WWW-Authenticate'])[0]
+        realms = re.findall('realm="([^"]*)"', headers['WWW-Authenticate'])
+        if not realms:
+            return self.http_error_default(req, fp, code, msg, headers)
+        realm = realms[0]
         self.add_password(realm, host, user, passw)
         # The digest header is added as an unredirected header,
         # which the regular Basic header would take precedence over.

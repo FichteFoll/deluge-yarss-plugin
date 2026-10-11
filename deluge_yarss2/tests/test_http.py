@@ -37,6 +37,16 @@ class DigestAuthRequestHandler(BaseHTTPRequestHandler):
         pass
 
 
+class DigestAuthWithoutRealmRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):  # NOQA: N802
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Digest nonce="nonce", qop="auth"')
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+
 class HTTPTestCase(unittest.TestCase):
     def setUp(self):  # NOQA
         pass
@@ -254,3 +264,14 @@ class HTTPTestCase(unittest.TestCase):
         basic, digest = server.authorizations
         self.assertEqual("Basic dXNlcjpwYXNzOndvcmQ=", basic)
         self.assertIn('username="user"', digest)
+
+    def test_feed_url_credentials_digest_challenge_without_realm(self):
+        server = HTTPServer(("127.0.0.1", 0), DigestAuthWithoutRealmRequestHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+
+        result = {}
+        feedparsing_http.get(f"http://user:pass@127.0.0.1:{server.server_port}/feed", result=result)
+
+        self.assertEqual(401, result["status"])
