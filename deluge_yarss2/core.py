@@ -174,6 +174,7 @@ class Core(CorePluginBase):
         if "rssfeed_key" in torrent_info:
             rssfeed_data = self.yarss_config.get_config()["rssfeeds"][torrent_info["rssfeed_key"]]
             torrent_info["user_agent"] = get_user_agent(rssfeed_data=rssfeed_data)
+            torrent_info["verify_tls"] = rssfeed_data.get("verify_tls", True)
         torrent_download = self.torrent_handler.add_torrent(torrent_info)
         return torrent_download.to_dict()
 

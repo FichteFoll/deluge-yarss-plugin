@@ -31,6 +31,7 @@ class DialogRSSFeed:
                 "on_txt_cookies_query_tooltip": self.on_txt_cookies_query_tooltip,
                 "on_checkbox_ebey_ttl_query_tooltip": self.on_checkbox_ebey_ttl_query_tooltip,
                 "on_checkbox_prefer_magnet_query_tooltip": self.on_checkbox_prefer_magnet_query_tooltip,
+                "on_checkbox_verify_tls_query_tooltip": self.on_checkbox_verify_tls_query_tooltip,
                 "on_checkbox_run_on_startup_query_tooltip": self.on_checkbox_run_on_startup_query_tooltip,
             }
         )
@@ -55,6 +56,7 @@ class DialogRSSFeed:
             self.glade.get_object("checkbutton_on_startup").set_active(self.rssfeed["update_on_startup"])
             self.glade.get_object("checkbox_obey_ttl").set_active(self.rssfeed["obey_ttl"])
             self.glade.get_object("checkbox_prefer_magnet").set_active(self.rssfeed["prefer_magnet"])
+            self.glade.get_object("checkbox_verify_tls").set_active(self.rssfeed.get("verify_tls", True))
 
             cookies = http.get_matching_cookies_dict(self.gtkUI.cookies, self.rssfeed["site"])
             cookies_hdr = http.get_cookie_header(cookies)
@@ -73,6 +75,8 @@ class DialogRSSFeed:
                 self.glade.get_object("checkbox_obey_ttl").set_sensitive(False)
                 self.glade.get_object("checkbox_prefer_magnet").set_active(False)
                 self.glade.get_object("checkbox_prefer_magnet").set_sensitive(False)
+                self.glade.get_object("checkbox_verify_tls").set_active(True)
+                self.glade.get_object("checkbox_verify_tls").set_sensitive(False)
                 self.glade.get_object("button_save").set_sensitive(False)
 
     def get_data_fields(self, cookies=False):
@@ -86,6 +90,7 @@ class DialogRSSFeed:
         rssfeed_data["update_on_startup"] = self.glade.get_object("checkbutton_on_startup").get_active()
         rssfeed_data["obey_ttl"] = self.glade.get_object("checkbox_obey_ttl").get_active()
         rssfeed_data["prefer_magnet"] = self.glade.get_object("checkbox_prefer_magnet").get_active()
+        rssfeed_data["verify_tls"] = self.glade.get_object("checkbox_verify_tls").get_active()
         if cookies:
             rssfeed_data["cookies"] = self.glade.get_object("txt_cookies").get_text()
         return rssfeed_data
@@ -139,6 +144,17 @@ class DialogRSSFeed:
     def on_checkbox_prefer_magnet_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
         return set_tooltip_markup(
             tooltip, "If the feed contains both a torrent link and a magnet link, prefer magnet link"
+        )
+
+    def on_checkbox_verify_tls_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
+        return set_tooltip_markup(
+            tooltip,
+            (
+                "Uncheck this to skip the verification of TLS certificates "
+                "when fetching this feed and downloading its torrents, "
+                "e.g. for trackers with self-signed certificates. "
+                "This makes the connection vulnerable to interception."
+            ),
         )
 
     def on_checkbox_run_on_startup_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):

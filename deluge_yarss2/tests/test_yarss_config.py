@@ -216,6 +216,14 @@ class ConfigTestCase(unittest.TestCase):
         self.assertTrue(deluge_yarss2.yarss_config.DUMMY_RSSFEED_KEY in test_feeds)
         self.assertTrue("default_email_to_address" in self.config.config["email_configurations"])
 
+    def test_verify_config_inserts_verify_tls(self):
+        test_feeds = test_common.get_default_rssfeeds(1)
+        # Feeds saved before the option existed lack the key.
+        test_feeds["0"].pop("verify_tls", None)
+        self.config.config["rssfeeds"] = test_feeds
+        self.config._verify_config()
+        self.assertIs(test_feeds["0"]["verify_tls"], True)
+
     def test_update_config_to_version4(self):
         # default_subscription = deluge_yarss2.yarss_config.get_fresh_subscription_config()
         # Create 2 feeds

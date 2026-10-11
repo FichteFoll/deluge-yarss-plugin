@@ -6,6 +6,7 @@
 # See LICENSE for more details.
 #
 import re
+import urllib.request
 from urllib.error import URLError
 
 import attr
@@ -101,12 +102,21 @@ def atoma_result_to_dict(atoma_result):
 
 
 def fetch_and_parse_rssfeed_atom(
-    url_file_stream_or_string, site_cookies_dict=None, user_agent=None, request_headers=None, timeout=10
+    url_file_stream_or_string,
+    site_cookies_dict=None,
+    user_agent=None,
+    request_headers=None,
+    timeout=10,
+    verify_tls=True,
 ):
+    handlers = None
+    if not verify_tls:
+        handlers = [urllib.request.HTTPSHandler(context=http.get_ssl_context(verify_tls=False))]
     result = http.download_file(
         url_file_stream_or_string,
         site_cookies_dict=site_cookies_dict,
         user_agent=user_agent,
+        handlers=handlers,
         request_headers=request_headers,
         timeout=timeout,
     )
@@ -182,7 +192,11 @@ class RSSFeedHandler:
         # Will abort after 10 seconds if server doesn't answer
         try:
             parsed_feed = fetch_and_parse_rssfeed(
-                rssfeed_data["url"], user_agent=user_agent, request_headers=cookie_header, timeout=10
+                rssfeed_data["url"],
+                user_agent=user_agent,
+                request_headers=cookie_header,
+                timeout=10,
+                verify_tls=rssfeed_data.get("verify_tls", True),
             )
         except OSError as e:
             # Network failures (timeouts, refused connections, TLS errors) are not bugs,
@@ -461,6 +475,7 @@ class RSSFeedHandler:
                     "site_cookies_dict": fetch_data["site_cookies_dict"],
                     "user_agent": fetch_data["user_agent"],
                     "referrer": rssfeed_data["url"],
+                    "verify_tls": rssfeed_data.get("verify_tls", True),
                     "subscription_data": subscription_data,
                 }
             )

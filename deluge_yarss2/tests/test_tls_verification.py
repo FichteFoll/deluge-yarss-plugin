@@ -11,6 +11,7 @@ import ssl
 import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest import mock
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -18,9 +19,14 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from twisted.trial import unittest
 
+from deluge.error import DelugeError
+
 import deluge_yarss2.util.common
+from deluge_yarss2.core import Core
+from deluge_yarss2.rssfeed_handling import RSSFeedHandler
 from deluge_yarss2.torrent_handling import TorrentHandler
 from deluge_yarss2.util import logging
+from deluge_yarss2.yarss_config import get_fresh_rssfeed_config
 
 from . import common as test_common
 from .utils.log_utils import plugin_tests_logger_name
@@ -132,3 +138,70 @@ class DownloadTorrentFileTLSTestCase(HTTPSServerTestCase):
         download = self.handler.download_torrent_file(self.torrent_url, verify_tls=False)
         self.assertTrue(download.success)
         self.assertEqual(download.filedump, self.torrent_data)
+
+
+class GetTorrentTLSTestCase(HTTPSServerTestCase):
+    def setUp(self):  # NOQA
+        super().setUp()
+        self.handler = TorrentHandler(log)
+
+    def test_get_torrent_verifies_certificate(self):
+        download = self.handler.get_torrent({"link": self.torrent_url})
+        self.assertFalse(download.success)
+        self.assertIn("certificate verify failed", download.error_msg)
+
+    def test_get_torrent_without_verification(self):
+        download = self.handler.get_torrent({"link": self.torrent_url, "verify_tls": False})
+        self.assertTrue(download.success)
+        self.assertEqual(download.filedump, self.torrent_data)
+
+
+class CoreAddTorrentTLSTestCase(HTTPSServerTestCase):
+    def setUp(self):  # NOQA
+        super().setUp()
+        self.rssfeed = get_fresh_rssfeed_config(key="0")
+        self.core = Core("test")
+        self.core.yarss_config = mock.Mock()
+        self.core.yarss_config.get_config.return_value = {"cookies": {}, "rssfeeds": {"0": self.rssfeed}}
+        self.core.torrent_handler = TorrentHandler(log)
+        # Stops before handing the download to Deluge's TorrentManager, which is not running.
+        self.core.torrent_handler.add_torrent = self.core.torrent_handler.get_torrent
+
+    def test_add_torrent_verifies_certificate(self):
+        download = self.core.add_torrent({"link": self.torrent_url, "rssfeed_key": "0"})
+        self.assertFalse(download["success"])
+
+    def test_add_torrent_without_verification(self):
+        self.rssfeed["verify_tls"] = False
+        download = self.core.add_torrent({"link": self.torrent_url, "rssfeed_key": "0"})
+        self.assertTrue(download["success"])
+
+
+class FetchFeedTLSTestCase(HTTPSServerTestCase):
+    def setUp(self):  # NOQA
+        super().setUp()
+        self.handler = RSSFeedHandler(log)
+        self.config = test_common.get_test_config_dict()
+        self.config["rssfeeds"]["0"]["url"] = self.feed_url
+
+    def test_get_rssfeed_parsed_verifies_certificate(self):
+        rssfeed_data = {"name": "Test", "url": self.feed_url}
+        with self.assertRaisesRegex(DelugeError, "certificate verify failed"):
+            self.handler.get_rssfeed_parsed(rssfeed_data)
+
+    def test_get_rssfeed_parsed_without_verification(self):
+        rssfeed_data = {"name": "Test", "url": self.feed_url, "verify_tls": False}
+        parsed = self.handler.get_rssfeed_parsed(rssfeed_data)
+        self.assertTrue(parsed["items"])
+
+    def test_fetch_feed_torrents_verifies_certificate(self):
+        with self.assertRaisesRegex(DelugeError, "certificate verify failed"):
+            self.handler.fetch_feed_torrents(self.config, "0")
+
+    def test_fetch_feed_torrents_without_verification(self):
+        self.config["rssfeeds"]["0"]["verify_tls"] = False
+        fetch_data = self.handler.fetch_feed_torrents(self.config, "0")
+        matches = fetch_data["matching_torrents"]
+        self.assertTrue(matches)
+        for match in matches:
+            self.assertIs(match["verify_tls"], False)

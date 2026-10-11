@@ -541,6 +541,7 @@ def get_fresh_rssfeed_config(
     config_dict["obey_ttl"] = obey_ttl
     config_dict["user_agent"] = user_agent
     config_dict["prefer_magnet"] = False
+    config_dict["verify_tls"] = True
     if key:
         config_dict["key"] = key
     return config_dict

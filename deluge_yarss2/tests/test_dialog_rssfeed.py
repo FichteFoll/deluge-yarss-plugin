@@ -57,9 +57,11 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         dialog = DialogRSSFeed(dummy, rssfeed)
         dialog.dialog = dummy
         dialog.glade.get_object("txt_name").set_text("Test2")
+        dialog.glade.get_object("checkbox_verify_tls").set_active(False)
         dialog.on_button_save_clicked()
 
-        # Should test the values that are saved
+        self.assertEqual(rssfeed["name"], "Test2")
+        self.assertIs(rssfeed["verify_tls"], False)
 
     def test_populate_data_fields(self):
         dummy = DummyClass()
@@ -71,6 +73,7 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         rssfeed["update_interval"] = 10
         rssfeed["site"] = urlparse.urlparse(url).netloc
         rssfeed["obey_ttl"] = False
+        rssfeed["verify_tls"] = False
 
         cookies = {"uid": "92323", "passkey": "aksdf9798d767sadf8678as6df9df"}
         dummy.rssfeed = rssfeed
@@ -81,6 +84,8 @@ class DialogRSSFeedTestCase(unittest.TestCase):
         self.assertEqual(data["name"], rssfeed["name"])
         self.assertEqual(data["url"], rssfeed["url"])
         self.assertEqual(data["obey_ttl"], rssfeed["obey_ttl"])
+        self.assertFalse(dialog.glade.get_object("checkbox_verify_tls").get_active())
+        self.assertIs(data["verify_tls"], False)
         self.assertEqual(data["update_interval"], rssfeed["update_interval"])
         self.assertEqual(data["site"], rssfeed["site"])
         cookies_hdr = http.get_cookie_header(cookies)

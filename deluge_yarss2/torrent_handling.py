@@ -105,7 +105,9 @@ class TorrentHandler:
                 f"Downloading torrent: '{url}' using cookies: '{site_cookies_dict}', headers: '{headers}'",
                 gtkui=True,
             )
-            download = self.download_torrent_file(url, cookies=site_cookies_dict, headers=headers)
+            download = self.download_torrent_file(
+                url, cookies=site_cookies_dict, headers=headers, verify_tls=torrent_info.get("verify_tls", True)
+            )
             # Error occured
             if not download.success:
                 return download
