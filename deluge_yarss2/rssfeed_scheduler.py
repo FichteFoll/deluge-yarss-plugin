@@ -6,12 +6,12 @@
 # See LICENSE for more details.
 #
 
+import functools
 import traceback
 
 import twisted.internet.defer as defer
 from twisted.internet import reactor, threads
 from twisted.internet.task import LoopingCall
-from twisted.python.failure import Failure
 
 import deluge.component as component
 from deluge.error import DelugeError
@@ -88,14 +88,18 @@ class RSSFeedScheduler:
         stop_timer(self.rssfeed_timers.pop(key))
         return True
 
-    def rssfeed_update_handler_safe(self, rssfeed_key=None, subscription_key=None):
+    def rssfeed_update_handler_safe(self, rssfeed_key=None, subscription_key=None, subscription_rssfeed_key=None):
         """
         This function is called by the LoopingCall, and should avoid passing any
         raised exceptions back to the loopingcall. This is to make sure the loopingcall
         doesn't stop.
         """
         try:
-            return self.rssfeed_update_handler(rssfeed_key=rssfeed_key, subscription_key=subscription_key)
+            return self.rssfeed_update_handler(
+                rssfeed_key=rssfeed_key,
+                subscription_key=subscription_key,
+                subscription_rssfeed_key=subscription_rssfeed_key,
+            )
         except DelugeError:
             # Expected failures such as unreachable feeds, already logged where they are raised
             return None
@@ -104,13 +108,22 @@ class RSSFeedScheduler:
             exc_str = traceback.format_exc()
             self.log.warning(f"An exception was thrown by the RSS update handler. Please report this bug!\n{exc_str}")
 
-    def rssfeed_update_handler(self, rssfeed_key=None, subscription_key=None):
+    def rssfeed_update_handler(self, rssfeed_key=None, subscription_key=None, subscription_rssfeed_key=None):
         """Goes through all the feeds and runs the active ones.
         Multiple subscriptions on one RSS Feed will download the RSS feed page only once
+
+        subscription_rssfeed_key: The RSS Feed the subscription belonged to when its run was queued.
+            The run is skipped if the subscription has been moved to another RSS Feed since.
         """
         if subscription_key:
-            subscription_name = self.yarss_config.get_config()["subscriptions"][subscription_key]["name"]
-            self.log.info(f"Manually running Subscription '{subscription_name}'")
+            subscription = self.yarss_config.get_config()["subscriptions"][subscription_key]
+            if subscription_rssfeed_key is not None and subscription["rssfeed_key"] != subscription_rssfeed_key:
+                self.log.warning(
+                    f"Skipping the run of Subscription '{subscription['name']}', "
+                    "because it was moved to another RSS Feed while the run was queued."
+                )
+                return None
+            self.log.info(f"Manually running Subscription '{subscription['name']}'")
         elif rssfeed_key:
             if self.yarss_config.get_config()["rssfeeds"][rssfeed_key]["active"] is False:
                 return
@@ -179,14 +192,29 @@ class RSSFeedScheduler:
             self.log.warning(f"An exception was thrown when adding torrents. Please report this bug!\n{exc_str}")
 
     def queue_rssfeed_update(self, rssfeed_key=None, subscription_key=None):
+        config = self.yarss_config.get_config()
         # Like last_update in the feed config, only updates of the whole feed count
         if subscription_key is None and rssfeed_key in self.rssfeed_timers:
             self.rssfeed_timers[rssfeed_key]["last_update"] = self.clock.seconds()
-        d = self.run_queue.push(
-            self.rssfeed_update_handler_safe, rssfeed_key=rssfeed_key, subscription_key=subscription_key
-        )
-        d.addCallback(self.add_torrents_callback)
-        return d
+        queue_key = rssfeed_key
+        job_kwargs = {"rssfeed_key": rssfeed_key, "subscription_key": subscription_key}
+        if subscription_key is not None:
+            queue_key = config["subscriptions"][subscription_key]["rssfeed_key"]
+            # The job is serialized with the feed it is queued under,
+            # so it must not run on another feed that the subscription is moved to while it waits
+            job_kwargs["subscription_rssfeed_key"] = queue_key
+        self.run_queue.concurrent_max = get_max_concurrent_feeds(config.get("general", {}))
+        job = functools.partial(self.rssfeed_update_handler_safe, **job_kwargs)
+        return self.run_queue.push(queue_key, job, after=self.add_torrents_callback)
+
+
+def get_max_concurrent_feeds(general_config):
+    """Returns the configured number of parallel feed jobs, where any invalid value counts as 1."""
+    value = general_config.get("max_concurrent_feeds", 1)
+    # bool is a subclass of int, but not a number of feeds
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return 1
+    return value
 
 
 def stop_timer(timer):
@@ -197,36 +225,48 @@ def stop_timer(timer):
 
 
 class RSSFeedRunQueue:
-    """Runs functions in separate threads. If a job is already running,
-    jobs pushed are queued until the running job has finished"""
+    """Runs jobs in worker threads, at most concurrent_max at a time and at most one per key.
+
+    A job's key stays taken until its `after` callable has returned on the reactor,
+    so the next job of the same key starts only after the previous one is fully processed.
+    Jobs that cannot start yet wait in FIFO order,
+    and a waiting job does not hold up the jobs of other keys.
+    """
 
     def __init__(self, concurrent_max=1):
-        self.concurrentMax = concurrent_max
-        self._running = 0
+        self.concurrent_max = concurrent_max
+        self._running_keys = set()
         self._queued = []
 
-    def push(self, f, *args, **kwargs):
-        """Push job to queue"""
-        if self._running < self.concurrentMax:
-            return self._run(f, args, kwargs)
+    def push(self, key, job, after=None):
+        """Queues the zero-argument callable job and returns a Deferred with its result.
+
+        If given, after is called on the reactor with the job's result,
+        and its return value becomes the result of the Deferred.
+        """
         d = defer.Deferred()
-        self._queued.append((f, args, kwargs, d))
+        self._queued.append((key, job, after, d))
+        self._start_queued()
         return d
 
-    def _run(self, f, args, kwargs):
-        """Run function in separate thread"""
-        self._running += 1
-        deferred = threads.deferToThread(f, *args, **kwargs)
-        deferred.addBoth(self._try_queued)
-        return deferred
+    def _start_queued(self):
+        # A loop, because concurrent_max may have been raised since the last start
+        while len(self._running_keys) < self.concurrent_max:
+            entry = next((entry for entry in self._queued if entry[0] not in self._running_keys), None)
+            if entry is None:
+                return
+            self._queued.remove(entry)
+            self._run(*entry)
 
-    def _try_queued(self, r):
-        """Execute next job in queue if it exists"""
-        self._running -= 1
-        if self._running < self.concurrentMax and self._queued:
-            f, args, kwargs, d = self._queued.pop(0)
-            new_d = self._run(f, args, kwargs)
-            new_d.chainDeferred(d)
-        if isinstance(r, Failure):
-            r.trap()
-        return r
+    def _run(self, key, job, after, d):
+        self._running_keys.add(key)
+        job_d = threads.deferToThread(job)
+        if after is not None:
+            job_d.addCallback(after)
+        job_d.addBoth(self._release, key)
+        job_d.chainDeferred(d)
+
+    def _release(self, result, key):
+        self._running_keys.discard(key)
+        self._start_queued()
+        return result

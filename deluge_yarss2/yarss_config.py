@@ -28,7 +28,7 @@ __DEFAULT_PREFS = {
     "subscriptions": {},
     "cookies": {},
     "email_messages": {},
-    "general": {"show_log_in_gui": True},
+    "general": {"show_log_in_gui": True, "max_concurrent_feeds": 1},
 }
 
 

@@ -5,6 +5,8 @@
 # the additional special exception to link portions of this program with the OpenSSL library.
 # See LICENSE for more details.
 #
+from unittest import mock
+
 import pytest
 from twisted.internet import defer, task
 from twisted.trial import unittest
@@ -17,6 +19,7 @@ import deluge_yarss2.gtk3ui.gtkui
 from deluge_yarss2.gtk3ui.gtkui import GtkUI
 from deluge_yarss2.tests import common as tests_common
 from deluge_yarss2.util import logging
+from deluge_yarss2.yarss_config import default_prefs, get_fresh_email_config
 
 from . import test_gtkui
 from .utils.log_utils import plugin_tests_logger_name
@@ -54,6 +57,51 @@ class GtkUITestCase(unittest.TestCase):
             component._ComponentRegistry.components = {}
 
         return component.shutdown().addCallback(on_shutdown)
+
+
+@pytest.mark.gui
+class GtkUIGeneralSettingsTestCase(unittest.TestCase):
+    def setUp(self):  # NOQA
+        # Setting the config in the widgets triggers their signal handlers, which save to the core
+        for method in ("save_general_config", "save_email_config"):
+            patcher = mock.patch.object(GtkUI, method)
+            setattr(self, method, patcher.start())
+            self.addCleanup(patcher.stop)
+        self.gtkui = GtkUI("YaRSS2")
+        self.gtkui.create_ui()
+
+    def tearDown(self):  # NOQA
+        return component.deregister(self.gtkui)
+
+    def build_config(self, max_concurrent_feeds=None):
+        config = default_prefs()
+        config["email_configurations"] = get_fresh_email_config()
+        if max_concurrent_feeds is not None:
+            config["general"]["max_concurrent_feeds"] = max_concurrent_feeds
+        return config
+
+    def test_update_data_from_config_sets_spinbutton(self):
+        self.gtkui.update_data_from_config(self.build_config(max_concurrent_feeds=3))
+
+        spinbutton = self.gtkui.glade.get_object("spinbutton_max_concurrent_feeds")
+        self.assertEqual(3, spinbutton.get_value_as_int())
+
+    def test_update_data_from_config_defaults_to_one(self):
+        self.gtkui.update_data_from_config(self.build_config())
+
+        spinbutton = self.gtkui.glade.get_object("spinbutton_max_concurrent_feeds")
+        self.assertEqual(1, spinbutton.get_value_as_int())
+
+    def test_save_configuration_data_saves_spinbutton_value(self):
+        self.gtkui.update_data_from_config(self.build_config(max_concurrent_feeds=3))
+
+        spinbutton = self.gtkui.glade.get_object("spinbutton_max_concurrent_feeds")
+        spinbutton.set_value(5)
+
+        self.gtkui.save_configuration_data()
+
+        saved_config = self.save_general_config.call_args.args[0]
+        self.assertEqual(5, saved_config["max_concurrent_feeds"])
 
 
 @pytest.mark.label

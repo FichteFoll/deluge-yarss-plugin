@@ -177,6 +177,8 @@ class GtkUI(Gtk3PluginBase):
         textbuffer = self.glade.get_object("textview_default_message").get_buffer()
         default_message = textbuffer.get_text(textbuffer.get_start_iter(), textbuffer.get_end_iter(), True)
 
+        max_concurrent_feeds = self.glade.get_object("spinbutton_max_concurrent_feeds").get_value_as_int()
+
         self.email_config["send_email_on_torrent_events"] = send_emails
         self.email_config["from_address"] = from_addr
         self.email_config["smtp_server"] = smtp_server
@@ -187,6 +189,7 @@ class GtkUI(Gtk3PluginBase):
         self.email_config["default_email_to_address"] = default_to_address
         self.email_config["default_email_subject"] = default_subject
         self.email_config["default_email_message"] = default_message
+        self.general_config["max_concurrent_feeds"] = int(max_concurrent_feeds)
         self.save_email_config(self.email_config)
         self.save_general_config(self.general_config)
 
@@ -286,6 +289,9 @@ class GtkUI(Gtk3PluginBase):
         show_log_in_gui = self.general_config.get("show_log_in_gui", True)
         self.gtkui_log.show_log_in_gui = show_log_in_gui
         self.glade.get_object("checkbutton_show_log_messages_gui").set_active(show_log_in_gui)
+
+        max_concurrent_feeds = self.general_config.get("max_concurrent_feeds", 1)
+        self.glade.get_object("spinbutton_max_concurrent_feeds").set_value(max_concurrent_feeds)
 
     def update_subscription_list(self, subscriptions_store):
         subscriptions_store.clear()
