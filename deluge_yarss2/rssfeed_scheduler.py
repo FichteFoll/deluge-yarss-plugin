@@ -45,8 +45,7 @@ class RSSFeedScheduler:
 
     def disable_timers(self):
         for key in list(self.rssfeed_timers.keys()):
-            self.rssfeed_timers[key]["timer"].stop()
-            del self.rssfeed_timers[key]
+            stop_timer(self.rssfeed_timers.pop(key))
 
     def set_timer(self, key, interval, update_on_startup=False):
         """Schedule a timer for the specified interval."""
@@ -55,15 +54,30 @@ class RSSFeedScheduler:
         except ValueError:
             self.log.error(f"Failed to convert interval '{str(interval)}' to int!")
             return False
+        interval_seconds = interval * 60
+        now = self.clock.seconds()
         old_timer = self.rssfeed_timers.get(key)
-        if old_timer and old_timer["timer"].running:
-            old_timer["timer"].stop()
         # A fresh LoopingCall, because a stopped one whose run is still in progress
         # would schedule its next call when that run finishes if it was restarted
         timer = LoopingCall(self.queue_rssfeed_update, key)
         timer.clock = self.clock
-        self.rssfeed_timers[key] = {"timer": timer, "update_interval": interval}
-        timer.start(interval * 60, now=update_on_startup)  # Multiply to get seconds
+        if old_timer is None:
+            # Start of the last update of the feed, or of the timer before the first update
+            last_update = now
+            delayed_start = None
+            timer.start(interval_seconds, now=update_on_startup)
+        else:
+            stop_timer(old_timer)
+            # Keep the time of the last update, so that a new interval counts from it
+            last_update = old_timer["last_update"]
+            delay = max(0, last_update + interval_seconds - now)
+            delayed_start = self.clock.callLater(delay, timer.start, interval_seconds)
+        self.rssfeed_timers[key] = {
+            "timer": timer,
+            "update_interval": interval,
+            "last_update": last_update,
+            "delayed_start": delayed_start,
+        }
         return True
 
     def delete_timer(self, key):
@@ -71,8 +85,7 @@ class RSSFeedScheduler:
         if key not in self.rssfeed_timers:
             self.log.warning(f"Cannot delete timer. No timer with key {key}")
             return False
-        self.rssfeed_timers[key]["timer"].stop()
-        del self.rssfeed_timers[key]
+        stop_timer(self.rssfeed_timers.pop(key))
         return True
 
     def rssfeed_update_handler_safe(self, rssfeed_key=None, subscription_key=None):
@@ -165,10 +178,22 @@ class RSSFeedScheduler:
             exc_str = traceback.format_exc()
             self.log.warning(f"An exception was thrown when adding torrents. Please report this bug!\n{exc_str}")
 
-    def queue_rssfeed_update(self, *args, **kwargs):
-        d = self.run_queue.push(self.rssfeed_update_handler_safe, *args, **kwargs)
+    def queue_rssfeed_update(self, rssfeed_key=None, subscription_key=None):
+        # Like last_update in the feed config, only updates of the whole feed count
+        if subscription_key is None and rssfeed_key in self.rssfeed_timers:
+            self.rssfeed_timers[rssfeed_key]["last_update"] = self.clock.seconds()
+        d = self.run_queue.push(
+            self.rssfeed_update_handler_safe, rssfeed_key=rssfeed_key, subscription_key=subscription_key
+        )
         d.addCallback(self.add_torrents_callback)
         return d
+
+
+def stop_timer(timer):
+    if timer["delayed_start"] and timer["delayed_start"].active():
+        timer["delayed_start"].cancel()
+    if timer["timer"].running:
+        timer["timer"].stop()
 
 
 class RSSFeedRunQueue:

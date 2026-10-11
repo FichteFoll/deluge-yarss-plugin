@@ -83,12 +83,17 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.assertFalse("0" in self.scheduler.rssfeed_timers)
 
     def test_reschedule_timer(self):
-        # Change interval to 60 minutes
-        self.assertTrue(self.scheduler.set_timer("0", 60))
+        clock, run_times = self.run_feeds_on_clock()
+        self.scheduler.set_timer("0", 1)
+        clock.pump([1] * 30)
 
-        interval = self.scheduler.rssfeed_timers["0"]["timer"].interval
-        self.assertEqual(60 * 60, interval)
+        # Change interval to 60 minutes, counted from the start of the timer
+        self.assertTrue(self.scheduler.set_timer("0", 60))
         self.assertEqual(self.scheduler.rssfeed_timers["0"]["update_interval"], 60)
+        clock.pump([1] * 3600)
+
+        self.assertEqual(self.scheduler.rssfeed_timers["0"]["timer"].interval, 60 * 60)
+        self.assertEqual(run_times, [3601])
 
     def test_schedule_timer(self):
         # Add new timer (with key "5") with interval 60 minutes
@@ -211,7 +216,7 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         self.scheduler.set_timer("0", 1, update_on_startup=True)
         clock.pump([1] * 400)
 
-        self.assertEqual(run_times, [1, 122, 242, 362])
+        self.assertEqual(run_times, [1, 121, 241, 361])
         self.assert_one_timer_left_until_disabled(clock)
 
     def test_set_timer_during_own_run_keeps_one_timer(self):
@@ -224,6 +229,37 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         clock.pump([1] * 340)
 
         self.assertEqual(run_times, [61, 181, 301])
+        self.assert_one_timer_left_until_disabled(clock)
+
+    def test_set_timer_counts_new_interval_from_last_update(self):
+        clock, run_times = self.run_feeds_on_clock()
+        self.scheduler.set_timer("0", 2)
+        clock.pump([1] * 150)
+
+        # Updated at 120, so the next update is due at 300
+        self.scheduler.set_timer("0", 3)
+        clock.pump([1] * 250)
+
+        # Updated at 300, so the next update would have been due at 360 and starts now
+        self.scheduler.set_timer("0", 1)
+        clock.advance(0)
+        clock.pump([1] * 70)
+
+        self.assertEqual(run_times, [121, 301, 401, 461])
+        self.assert_one_timer_left_until_disabled(clock)
+
+    def test_set_timer_counts_new_interval_from_manual_feed_update(self):
+        clock, run_times = self.run_feeds_on_clock()
+        self.scheduler.set_timer("0", 2)
+        clock.pump([1] * 30)
+        self.scheduler.queue_rssfeed_update("0")
+        self.scheduler.queue_rssfeed_update(subscription_key="0")
+        clock.pump([1] * 30)
+
+        self.scheduler.set_timer("0", 3)
+        clock.pump([1] * 180)
+
+        self.assertEqual(run_times, [31, 31, 211])
         self.assert_one_timer_left_until_disabled(clock)
 
     def test_ttl_update_for_feed_deleted_during_its_run(self):

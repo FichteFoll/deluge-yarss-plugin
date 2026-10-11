@@ -51,6 +51,7 @@ so these issues are no longer available.
 * Fixed cancelling a dialog in the GTK UI still saving its edits to the cached configuration
 * Fixed disabling the GTK UI plugin leaving its event handlers registered
 * Fixed a feed being updated twice per interval after its TTL changed during a scheduled update, with each further TTL change adding another update per interval
+* Changed a new update interval of a feed, whether saved in its settings or taken from its TTL, to count from the feed's last update instead of from the change, updating right away if that time has already passed
 * Fixed "Set now" for a subscription's last matched timestamp storing local wall clock time labelled as UTC, which could skip or re-add items for users at a non-zero UTC offset; a feed's last update was also shown with the wrong offset; set the last match again for any subscription where it was set with "Set now" before this fix
 * Fixed a crash in the subscription dialog when the Label plugin is disabled, and a crash in the path chooser's completion list on pointer motion events
 * Fixed `$torrentlist` not being replaced in the HTML part of a notification email when it ended the message or was followed by other text on the same line
