@@ -154,7 +154,12 @@ class RSSFeedScheduler:
         if args is None:
             return
         add_torrents_func, save_subscription_func, matching_torrents, config = args
-        add_torrents_func(save_subscription_func, matching_torrents, config)
+        try:
+            add_torrents_func(save_subscription_func, matching_torrents, config)
+        except Exception:
+            # A failure here would fail the Deferred and stop the LoopingCall of the feed for good
+            exc_str = traceback.format_exc()
+            self.log.warning(f"An exception was thrown when adding torrents. Please report this bug!\n{exc_str}")
 
     def queue_rssfeed_update(self, *args, **kwargs):
         d = self.run_queue.push(self.rssfeed_update_handler_safe, *args, **kwargs)

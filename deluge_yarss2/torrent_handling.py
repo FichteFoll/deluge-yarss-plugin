@@ -242,16 +242,21 @@ class TorrentHandler:
         if config["email_configurations"]["send_email_on_torrent_events"] is False:
             return
 
-        for email_key in torrent_names.keys():
-            # Check that the message is active
-            if not config["email_messages"][email_key]["active"]:
+        for email_key, (subscription_data, torrent_name_list) in torrent_names.items():
+            email_message = config["email_messages"].get(email_key)
+            if email_message is None:
+                self.log.warning(
+                    f"Not sending email notification '{email_key}' for subscription "
+                    f"'{subscription_data['name']}' because the email message does not exist."
+                )
                 continue
-            # Send email in
+            if not email_message["active"]:
+                continue
             send_torrent_email(
                 config["email_configurations"],
-                config["email_messages"][email_key],
-                subscription_data=torrent_names[email_key][0],
-                torrent_name_list=torrent_names[email_key][1],
+                email_message,
+                subscription_data=subscription_data,
+                torrent_name_list=torrent_name_list,
                 deferred=True,
             )
 

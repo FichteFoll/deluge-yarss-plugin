@@ -193,6 +193,19 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         return DeferredList([d_first, d_last]).addBoth(verify_callback_count)
 
+    def test_rssfeed_update_succeeds_when_adding_torrents_fails(self):
+        """A failed Deferred would stop the LoopingCall of the feed for good."""
+        self.scheduler.disable_timers()
+        self.config.set_config(test_common.get_test_config_dict())
+
+        def add_torrents_raise(*arg):
+            raise RuntimeError("Failed to add torrents")
+
+        self.scheduler.add_torrents_func = add_torrents_raise
+
+        d = self.scheduler.queue_rssfeed_update(rssfeed_key="0")
+        return d.addCallback(self.assertIsNone)
+
 
 class RSSFeedRunQueueTestCase(unittest.TestCase):
     def test_task_queue(self):
