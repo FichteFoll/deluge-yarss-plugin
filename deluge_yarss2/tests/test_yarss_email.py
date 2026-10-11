@@ -40,13 +40,21 @@ class Message:
 
 
 class DummySMTP:
-    def __init__(self, server_address, port):
+    def __init__(self, server_address, port, timeout=None):
         self.server_address = server_address
         self.port = port
+        self.timeout = timeout
         global smtp
         smtp = self
         self.ehlo_called = False
         self.starttls_called = False
+        self.closed = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.closed = True
 
     def login(self, username, password):
         self.username = username
@@ -61,6 +69,7 @@ class DummySMTP:
 
     def quit(self):
         self.has_quit = True
+        self.closed = True
 
     def ehlo(self):
         self.ehlo_called = True
@@ -123,6 +132,72 @@ class YaRSS2EmailTestCase(unittest.TestCase):
 
         self.assertTrue(smtp.ehlo_called)
         self.assertTrue(smtp.starttls_called)
+
+    def test_send_email_html_only(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message_html"] = "<p>Test Message</p>"
+
+        self.assertTrue(send_email(email, email_config))
+        self.assertIn(base64_encoded(email["message_html"]), inbox[-1].message)
+
+    def test_send_email_sendmail_failure_closes_connection(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message"] = "Test Message"
+
+        def failing_sendmail(self, from_address, to_address, fullmessage):
+            raise smtplib.SMTPException("sendmail failed")
+
+        self.patch(DummySMTP, "sendmail", failing_sendmail)
+
+        global smtp
+        self.assertFalse(send_email(email, email_config))
+        self.assertTrue(smtp.closed)
+
+    def test_send_email_closing_quit_error_returns_false(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message"] = "Test Message"
+
+        def failing_sendmail(self, from_address, to_address, fullmessage):
+            raise smtplib.SMTPException("sendmail failed")
+
+        def failing_exit(self, exc_type, exc_value, traceback):
+            self.closed = True
+            raise smtplib.SMTPResponseException(421, "Service not available")
+
+        self.patch(DummySMTP, "sendmail", failing_sendmail)
+        self.patch(DummySMTP, "__exit__", failing_exit)
+
+        global smtp
+        self.assertFalse(send_email(email, email_config))
+        self.assertTrue(smtp.closed)
+
+    def test_send_email_passes_timeout(self):
+        email_config = deluge_yarss2.yarss_config.get_fresh_email_config()
+        email_config["from_address"] = "from@test.com"
+
+        email = {}
+        email["to_address"] = "test@address.com"
+        email["subject"] = "Test Subject"
+        email["message"] = "Test Message"
+
+        global smtp
+        self.assertTrue(send_email(email, email_config))
+        self.assertEqual(smtp.timeout, yarss_email.SMTP_TIMEOUT)
 
 
 class YaRSS2TorrentEmailTestCase(unittest.TestCase):

@@ -18,6 +18,11 @@ from deluge_yarss2.util import logging
 
 log = logging.getLogger(__name__)
 
+# send_email runs in a Twisted reactor thread pool thread (see send_torrent_email's
+# deferToThread call), so blocking on a stuck SMTP server there is harmless to the
+# reactor, but we still want to give up eventually.
+SMTP_TIMEOUT = 30
+
 
 def send_email(email_conf, server_conf):
     """sends email notification of finished torrent"""
@@ -35,7 +40,7 @@ def send_email(email_conf, server_conf):
             mime_message = MIMEText(email_conf["message"].encode("utf-8"), "plain", _charset="utf-8")
     elif "message_html" in email_conf:
         # Send html message
-        mime_message = MIMEText(email_conf["message"].encode("utf-8"), "html", _charset="utf-8")
+        mime_message = MIMEText(email_conf["message_html"].encode("utf-8"), "html", _charset="utf-8")
     else:
         log.warning("Email config must contain either 'message' or 'message_html'")
         return False
@@ -51,38 +56,45 @@ def send_email(email_conf, server_conf):
         except ValueError:
             pass
     try:
-        mail_server = smtplib.SMTP(server_conf["smtp_server"], port)
+        mail_server = smtplib.SMTP(server_conf["smtp_server"], port, timeout=SMTP_TIMEOUT)
     except Exception as e:
         log.error(f"There was an error sending the notification email: {e}")
         return False
 
-    log.info(
-        f"Sending email message:\nTo: {mime_message['To']}\nFrom: {mime_message['From']}\n"
-        f"Subject: {mime_message['Subject']}\n"
-    )
-    log.info(
-        "Server: {}, port: {}, authentication: {}".format(
-            server_conf["smtp_server"], server_conf["smtp_port"], server_conf["smtp_authentication"]
-        )
-    )
-    if server_conf["smtp_authentication"]:
-        mail_server.ehlo()
-        mail_server.starttls()
-        mail_server.ehlo()
-        try:
-            mail_server.login(server_conf["smtp_username"], server_conf["smtp_password"])
-        except smtplib.SMTPHeloError:
-            log.warning("The server didn't reply properly to the helo greeting")
-        except smtplib.SMTPAuthenticationError:
-            log.warning("The server didn't accept the username/password combination")
     try:
-        mail_server.sendmail(server_conf["from_address"], email_conf["to_address"], mime_message.as_string())
-        mail_server.quit()
-    except Exception as e:
-        log.error(f"Sending email notification failed: {e}")
+        with mail_server:
+            log.info(
+                f"Sending email message:\nTo: {mime_message['To']}\nFrom: {mime_message['From']}\n"
+                f"Subject: {mime_message['Subject']}\n"
+            )
+            log.info(
+                "Server: {}, port: {}, authentication: {}".format(
+                    server_conf["smtp_server"], server_conf["smtp_port"], server_conf["smtp_authentication"]
+                )
+            )
+            if server_conf["smtp_authentication"]:
+                mail_server.ehlo()
+                mail_server.starttls()
+                mail_server.ehlo()
+                try:
+                    mail_server.login(server_conf["smtp_username"], server_conf["smtp_password"])
+                except smtplib.SMTPHeloError:
+                    log.warning("The server didn't reply properly to the helo greeting")
+                except smtplib.SMTPAuthenticationError:
+                    log.warning("The server didn't accept the username/password combination")
+            try:
+                mail_server.sendmail(server_conf["from_address"], email_conf["to_address"], mime_message.as_string())
+                mail_server.quit()
+            except Exception as e:
+                log.error(f"Sending email notification failed: {e}")
+                return False
+            else:
+                log.info("Sending email notification of finished torrent was successful")
+    except smtplib.SMTPResponseException as e:
+        # __exit__ re-raises if the server answers the closing QUIT with an error;
+        # the connection is already closed at that point, so just log it.
+        log.warning(f"The server responded with an error while closing the connection: {e}")
         return False
-    else:
-        log.info("Sending email notification of finished torrent was successful")
     return True
 
 
