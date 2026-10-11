@@ -273,13 +273,13 @@ class DialogSubscriptionGUI:
     def on_txt_filter_include_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
         return set_tooltip_markup(
             tooltip,
-            ("Input a regex filter to match the titles to be included. See YaRSS2 Wiki page for help and examples"),
+            ("Input a regex filter to match the titles to be included."),
         )
 
     def on_txt_filter_exclude_query_tooltip(self, widget, x, y, keyboard_mode, tooltip):
         return set_tooltip_markup(
             tooltip,
-            ("Input a regex filter to match the titles to be excluded. See YaRSS2 Wiki page for help and examples"),
+            ("Input a regex filter to match the titles to be excluded."),
         )
 
     def set_custom_text_tooltip(self):
