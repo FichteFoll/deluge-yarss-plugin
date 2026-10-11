@@ -120,6 +120,8 @@ def fetch_and_parse_rssfeed_atom(
     request_headers=None,
     timeout=10,
     verify_tls=True,
+    etag=None,
+    modified=None,
 ):
     handlers = None
     if not verify_tls:
@@ -131,7 +133,14 @@ def fetch_and_parse_rssfeed_atom(
         handlers=handlers,
         request_headers=request_headers,
         timeout=timeout,
+        etag=etag,
+        modified=modified,
     )
+    validators = {"etag": result.get("etag"), "modified": result.get("modified")}
+    status = result.get("status", 200)
+    if status == 304:
+        return {"status": 304, "bozo": 0, "feed": {}, "items": [], "parser": "atoma", **validators}
+
     from deluge_yarss2 import atoma
 
     atoma.rss.supported_rss_versions = []
@@ -149,6 +158,8 @@ def fetch_and_parse_rssfeed_atom(
         parsed_feeds["bozo_exception"] = str(err)
 
     parsed_feeds["parser"] = "atoma"
+    parsed_feeds["status"] = status
+    parsed_feeds.update(validators)
     return parsed_feeds
 
 
@@ -158,6 +169,11 @@ fetch_and_parse_rssfeed = fetch_and_parse_rssfeed_atom
 class RSSFeedHandler:
     def __init__(self, log):
         self.log = log
+        # Maps a feed key to the validators and the parsed feed of its last response,
+        # with the request identity they were fetched with, for conditional requests.
+        # Only the one running job of a feed reads and writes its entry, which the run queue guarantees,
+        # so no lock is needed.
+        self._conditional_cache = {}
 
     def get_link(self, item):
         link = None
@@ -182,10 +198,12 @@ class RSSFeedHandler:
     def get_size(self, item):
         return _get_size(item)
 
-    def get_rssfeed_parsed(self, rssfeed_data, site_cookies_dict=None, user_agent=None):
+    def get_rssfeed_parsed(self, rssfeed_data, site_cookies_dict=None, user_agent=None, use_conditional_cache=False):
         """
         rssfeed_data: A dictionary containing rss feed data as stored in the YaRSS2 config.
         site_cookies_dict: A dictionary of cookie values to be used for this rssfeed.
+        use_conditional_cache: Whether to send the validators of the feed's last response
+            and to reuse its parsed feed if the server answers 304 Not Modified.
         """
         return_dict = {}
         rssfeeds_dict = {}
@@ -201,6 +219,13 @@ class RSSFeedHandler:
             f"'{http.get_cookie_header(cookie_header)}' and User-agent: '{user_agent}'."
         )
 
+        cache_entry = None
+        if use_conditional_cache:
+            identity = (rssfeed_data["url"], user_agent, cookie_header.get("Cookie"))
+            cache_entry = self._conditional_cache.get(rssfeed_data["key"])
+            if cache_entry is not None and cache_entry["identity"] != identity:
+                cache_entry = None
+
         # Will abort after 10 seconds if server doesn't answer
         try:
             parsed_feed = fetch_and_parse_rssfeed(
@@ -209,6 +234,8 @@ class RSSFeedHandler:
                 request_headers=cookie_header,
                 timeout=10,
                 verify_tls=rssfeed_data.get("verify_tls", True),
+                etag=cache_entry["etag"] if cache_entry else None,
+                modified=cache_entry["modified"] if cache_entry else None,
             )
         except OSError as e:
             # Network failures (timeouts, refused connections, TLS errors) are not bugs,
@@ -225,6 +252,9 @@ class RSSFeedHandler:
             )
             self.log.warning("Stacktrace:\n" + common.get_exception_string())
             raise DelugeError("Exception occured in feedparser: " + str(e))
+
+        if use_conditional_cache:
+            parsed_feed = self._apply_conditional_cache(rssfeed_data, identity, cache_entry, parsed_feed)
 
         return_dict["raw_result"] = parsed_feed
 
@@ -276,6 +306,29 @@ class RSSFeedHandler:
         if key > 0:
             return_dict["items"] = rssfeeds_dict
         return return_dict
+
+    def _apply_conditional_cache(self, rssfeed_data, identity, cache_entry, parsed_feed):
+        """Returns the cached parsed feed for a 304 Not Modified response,
+        and otherwise updates the feed's cache entry from the response and returns it."""
+        feed_key = rssfeed_data["key"]
+        if parsed_feed.get("status") == 304:
+            if cache_entry is None:
+                message = f"RSS Feed '{rssfeed_data['name']}' answered 304 Not Modified to an unconditional request."
+                self.log.warning(message)
+                raise DelugeError(message)
+            self.log.info(f"RSS Feed '{rssfeed_data['name']}' was not modified, using the cached items.")
+            return cache_entry["parsed_feed"]
+
+        if parsed_feed["bozo"] == 0 and (parsed_feed.get("etag") or parsed_feed.get("modified")):
+            self._conditional_cache[feed_key] = {
+                "identity": identity,
+                "etag": parsed_feed.get("etag"),
+                "modified": parsed_feed.get("modified"),
+                "parsed_feed": parsed_feed,
+            }
+        else:
+            self._conditional_cache.pop(feed_key, None)
+        return parsed_feed
 
     def _new_rssfeeds_dict_item(self, title, link=None, torrent=None, magnet=None, published_date=None, key=None):
         d = {}
@@ -443,7 +496,10 @@ class RSSFeedHandler:
         # Feed has not yet been fetched.
         if fetch_data["rssfeed_items"] is None:
             rssfeed_parsed = self.get_rssfeed_parsed(
-                rssfeed_data, site_cookies_dict=fetch_data["site_cookies_dict"], user_agent=fetch_data["user_agent"]
+                rssfeed_data,
+                site_cookies_dict=fetch_data["site_cookies_dict"],
+                user_agent=fetch_data["user_agent"],
+                use_conditional_cache=True,
             )
             if rssfeed_parsed is None:
                 return
