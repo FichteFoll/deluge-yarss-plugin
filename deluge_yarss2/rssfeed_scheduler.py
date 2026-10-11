@@ -9,7 +9,7 @@
 import traceback
 
 import twisted.internet.defer as defer
-from twisted.internet import threads
+from twisted.internet import reactor, threads
 from twisted.internet.task import LoopingCall
 from twisted.python.failure import Failure
 
@@ -29,6 +29,7 @@ class RSSFeedScheduler:
         self.rssfeed_timers = {}
         self.run_queue = RSSFeedRunQueue()
         self.log = logger
+        self.clock = reactor
         self.rssfeedhandler = RSSFeedHandler(logger)
         self.torrent_handler = TorrentHandler(logger)
         # To make it possible to disable adding torrents in testing
@@ -54,20 +55,15 @@ class RSSFeedScheduler:
         except ValueError:
             self.log.error(f"Failed to convert interval '{str(interval)}' to int!")
             return False
-        # Already exists, so reschedule
-        if key in self.rssfeed_timers:
-            try:
-                self.rssfeed_timers[key]["timer"].stop()
-            except AssertionError as e:
-                self.log.warning("AssertionError:", e)
-                return False
-            self.rssfeed_timers[key]["update_interval"] = interval
-        else:
-            # New timer
-            # Second argument, the rssfeedkey is passed as argument to the callback method
-            timer = LoopingCall(self.queue_rssfeed_update, key)
-            self.rssfeed_timers[key] = {"timer": timer, "update_interval": interval}
-        self.rssfeed_timers[key]["timer"].start(interval * 60, now=update_on_startup)  # Multiply to get seconds
+        old_timer = self.rssfeed_timers.get(key)
+        if old_timer and old_timer["timer"].running:
+            old_timer["timer"].stop()
+        # A fresh LoopingCall, because a stopped one whose run is still in progress
+        # would schedule its next call when that run finishes if it was restarted
+        timer = LoopingCall(self.queue_rssfeed_update, key)
+        timer.clock = self.clock
+        self.rssfeed_timers[key] = {"timer": timer, "update_interval": interval}
+        timer.start(interval * 60, now=update_on_startup)  # Multiply to get seconds
         return True
 
     def delete_timer(self, key):
@@ -133,10 +129,15 @@ class RSSFeedScheduler:
         )
 
     def apply_ttl_update(self, rssfeed_key, ttl):
-        rssfeed = self.yarss_config.get_config()["rssfeeds"][rssfeed_key]
+        # The feed may have been deleted or the timers disabled while it was running
+        rssfeed = self.yarss_config.get_config()["rssfeeds"].get(rssfeed_key)
+        if rssfeed is None:
+            return
         self.log.info(f"Rescheduling RSS Feed '{rssfeed['name']}' with interval '{ttl}' according to TTL.")
         rssfeed["update_interval"] = ttl
-        self.set_timer(rssfeed_key, ttl, rssfeed["update_on_startup"])
+        if rssfeed_key not in self.rssfeed_timers:
+            return
+        self.set_timer(rssfeed_key, ttl)
 
     def emit_config_changed_event(self):
         try:

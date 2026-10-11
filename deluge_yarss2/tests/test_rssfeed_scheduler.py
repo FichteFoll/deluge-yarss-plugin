@@ -9,6 +9,7 @@
 import threading
 from unittest import mock
 
+from twisted.internet import task
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.python import threadable
 from twisted.trial import unittest
@@ -181,6 +182,67 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
         d = self.scheduler.queue_rssfeed_update("0")
         return d.addCallback(verify_ttl_applied)
 
+    def run_feeds_on_clock(self, ttl_on_first_run=None):
+        """Runs feeds on a clock with a stub handler and returns the clock and the times of the runs."""
+        self.scheduler.disable_timers()
+        clock = task.Clock()
+        self.scheduler.clock = clock
+        self.scheduler.run_queue = ClockRunQueue(clock)
+        self.scheduler.add_torrents_func = lambda *args: None
+        run_times = []
+
+        def run_feed(rssfeed_key=None, subscription_key=None):
+            ttl_update = (rssfeed_key, ttl_on_first_run) if ttl_on_first_run and not run_times else None
+            run_times.append(clock.seconds())
+            return (self.scheduler.add_torrents_func, None, [], self.config.get_config(), ttl_update)
+
+        self.scheduler.rssfeed_update_handler_safe = run_feed
+        return clock, run_times
+
+    def assert_one_timer_left_until_disabled(self, clock):
+        self.assertEqual(len(clock.getDelayedCalls()), 1)
+        self.scheduler.disable_timers()
+        self.assertEqual(clock.getDelayedCalls(), [])
+
+    def test_ttl_update_from_own_run_keeps_one_timer(self):
+        clock, run_times = self.run_feeds_on_clock(ttl_on_first_run=2)
+        self.rssfeeds["0"]["update_on_startup"] = True
+
+        self.scheduler.set_timer("0", 1, update_on_startup=True)
+        clock.pump([1] * 400)
+
+        self.assertEqual(run_times, [1, 122, 242, 362])
+        self.assert_one_timer_left_until_disabled(clock)
+
+    def test_set_timer_during_own_run_keeps_one_timer(self):
+        clock, run_times = self.run_feeds_on_clock()
+        self.scheduler.set_timer("0", 1)
+        clock.pump([1] * 60)
+
+        # Like saving the feed while its scheduled run is still fetching
+        self.scheduler.set_timer("0", 2)
+        clock.pump([1] * 340)
+
+        self.assertEqual(run_times, [61, 181, 301])
+        self.assert_one_timer_left_until_disabled(clock)
+
+    def test_ttl_update_for_feed_deleted_during_its_run(self):
+        clock, run_times = self.run_feeds_on_clock(ttl_on_first_run=2)
+        added_torrents = []
+        self.scheduler.add_torrents_func = lambda *args: added_torrents.append(args)
+        self.scheduler.set_timer("0", 1)
+        clock.pump([1] * 60)
+
+        # Like deleting the feed while its scheduled run is still fetching
+        del self.config.get_config()["rssfeeds"]["0"]
+        self.scheduler.delete_timer("0")
+        with self.assertNoLogs(plugin_tests_logger_name, level="WARNING"):
+            clock.pump([1] * 60)
+
+        self.assertEqual(run_times, [61])
+        self.assertEqual(len(added_torrents), 1)
+        self.assertEqual(clock.getDelayedCalls(), [])
+
     def test_rssfeed_update_queue(self):
         """Tests that the add_torrents_func is called the correct number of times,
         and that add_torrents_func is running in the main thread.
@@ -253,6 +315,16 @@ class RSSFeedSchedulerTestCase(unittest.TestCase):
 
         d = self.scheduler.queue_rssfeed_update(rssfeed_key="0")
         return d.addCallback(verify_emitted_on_io_thread)
+
+
+class ClockRunQueue:
+    """Runs each job one second later on the clock instead of in a worker thread."""
+
+    def __init__(self, clock):
+        self.clock = clock
+
+    def push(self, f, *args, **kwargs):
+        return task.deferLater(self.clock, 1, f, *args, **kwargs)
 
 
 class RSSFeedRunQueueTestCase(unittest.TestCase):
