@@ -466,10 +466,20 @@ class RSSFeedHandler:
         last_match_dt = common.isodate_to_datetime(subscription_data["last_match"])
 
         for key in list(matches.keys()):
-            # Discard match only if timestamp is available,
-            # and the timestamp is older or equal to the last matching timestamp
-            matched_updated = common.isodate_to_datetime(matches[key]["updated"])
-            if matched_updated and last_match_dt >= matched_updated:
+            # An item without a publish date is only added when the subscription
+            # ignores timestamps; otherwise it is discarded, same as an item whose
+            # timestamp is older or equal to the last matching timestamp.
+            updated = matches[key]["updated"]
+            matched_updated = common.isodate_to_datetime(updated) if updated else None
+
+            if matched_updated is None:
+                if subscription_data["ignore_timestamp"] is not True:
+                    self.log.info(
+                        f"Not adding '{matches[key]['title']}' because it has no publish date. "
+                        'Enable "Ignore timestamp" in the subscription to add such items.'
+                    )
+                    continue
+            elif last_match_dt >= matched_updated:
                 if subscription_data["ignore_timestamp"] is True:
                     self.log.info(
                         f"Old timestamp: '{matches[key]['title']}', "
@@ -477,7 +487,6 @@ class RSSFeedHandler:
                     )
                 else:
                     self.log.info("Not adding because of old timestamp: '{}'".format(matches[key]["title"]))
-                    del matches[key]
                     continue
             fetch_data["matching_torrents"].append(
                 {

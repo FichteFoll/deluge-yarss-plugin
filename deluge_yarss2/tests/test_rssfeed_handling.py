@@ -15,7 +15,7 @@ from twisted.trial import unittest
 from deluge.error import DelugeError
 
 import deluge_yarss2.util.common
-from deluge_yarss2 import rssfeed_handling
+from deluge_yarss2 import rssfeed_handling, yarss_config
 from deluge_yarss2.util import common, logging
 
 from . import common as test_common
@@ -24,6 +24,20 @@ from .utils import assert_equal
 from .utils.log_utils import plugin_tests_logger_name
 
 log = logging.getLogger(plugin_tests_logger_name)
+
+
+class RecordingLog:
+    """Minimal logger stub that records the messages passed to info/warning."""
+
+    def __init__(self):
+        self.info_messages = []
+        self.warning_messages = []
+
+    def info(self, message, gtkui=True):
+        self.info_messages.append(message)
+
+    def warning(self, message, gtkui=True):
+        self.warning_messages.append(message)
 
 
 class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
@@ -342,6 +356,55 @@ class RSSFeedHandlingTestCase(unittest.TestCase, TestCaseDebug):
         config["rssfeeds"]["0"]["user_agent"] = custom_user_agent
         matche_result = self.rssfeedhandler.fetch_feed_torrents(config, "0")  # 0 is the rssfeed key
         self.assertEqual(matche_result["user_agent"], custom_user_agent)
+
+    def _build_undated_match_fixture(self, ignore_timestamp):
+        recording_log = RecordingLog()
+        handler = rssfeed_handling.RSSFeedHandler(recording_log)
+
+        subscription_data = yarss_config.get_fresh_subscription_config(
+            name="Test subscription",
+            regex_include="Undated",
+            last_match=common.get_default_date().isoformat(),
+        )
+        subscription_data["ignore_timestamp"] = ignore_timestamp
+
+        rssfeed_data = yarss_config.get_fresh_rssfeed_config(name="Test feed", url="http://example.com/feed")
+
+        item = handler._new_rssfeeds_dict_item("Undated item", link="http://example.com/item.torrent")
+        fetch_data = {
+            "matching_torrents": [],
+            "rssfeed_items": {0: item},
+            "site_cookies_dict": {},
+            "user_agent": "test-agent",
+        }
+
+        return handler, subscription_data, rssfeed_data, fetch_data, recording_log
+
+    def test_fetch_feed_skips_undated_match_without_ignore_timestamp(self):
+        handler, subscription_data, rssfeed_data, fetch_data, recording_log = self._build_undated_match_fixture(
+            ignore_timestamp=False
+        )
+
+        # An undated item must not trigger isodate_to_datetime's own parse warning.
+        with self.assertNoLogs("deluge_yarss2.util.common", level="WARNING"):
+            handler.fetch_feed(subscription_data, rssfeed_data, fetch_data)
+
+        self.assertEqual(fetch_data["matching_torrents"], [])
+        self.assertIn(
+            "Not adding 'Undated item' because it has no publish date. "
+            'Enable "Ignore timestamp" in the subscription to add such items.',
+            recording_log.info_messages,
+        )
+        self.assertEqual(recording_log.warning_messages, [])
+
+    def test_fetch_feed_adds_undated_match_with_ignore_timestamp(self):
+        handler, subscription_data, rssfeed_data, fetch_data, _ = self._build_undated_match_fixture(
+            ignore_timestamp=True
+        )
+        handler.fetch_feed(subscription_data, rssfeed_data, fetch_data)
+        matching_torrents = fetch_data["matching_torrents"]
+        self.assertEqual(len(matching_torrents), 1)
+        self.assertIsNone(matching_torrents[0]["updated_datetime"])
 
     def test_feedparser_dates(self):
         file_url = deluge_yarss2.util.common.get_resource("rss_with_special_dates.rss", path="tests/data/feeds/")
