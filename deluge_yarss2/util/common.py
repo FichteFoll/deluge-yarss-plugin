@@ -151,9 +151,8 @@ def write_to_file(filepath, content):
 def read_file(filepath):
     if not os.path.isfile(filepath):
         return None
-    f = open(filepath, "rb")
-    content = f.read()
-    return content
+    with open(filepath, "rb") as f:
+        return f.read()
 
 
 def method_name():
