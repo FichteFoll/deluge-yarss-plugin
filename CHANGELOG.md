@@ -40,7 +40,7 @@ so these issues are no longer available.
 * Fixed a crash when a subscription referenced a deleted email notification message; the notification is now skipped with a warning
 * Fixed thread-unsafe calls to reactor APIs for TTL rescheduling and event emission from feed and email worker threads
 * Fixed the add_torrent RPC downloading the torrent file on the reactor thread, which could stall the daemon when the server was slow
-* Fixed notification emails carrying over the content of an earlier notification when several fired in the same run, and feed titles and subscription names not being HTML-escaped in the HTML part
+* Fixed notification emails carrying over the content of an earlier notification when several fired in the same run, and feed-provided torrent titles and subscription names not being HTML-escaped in the HTML part; the user's own template text is used unescaped
 * Fixed SMTP connections being left open and never timing out; they now close on every path and time out after 30 seconds
 * Fixed sending an html-only notification email raising a KeyError
 * Fixed feed titles and subscription names with `&` or `<` not rendering correctly in the subscription dialog, and regex match highlighting using the wrong offsets for titles with non-ASCII characters
@@ -50,6 +50,10 @@ so these issues are no longer available.
 * Fixed the feed dialog deriving the site name from an unstripped URL
 * Fixed cancelling a dialog in the GTK UI still saving its edits to the cached configuration
 * Fixed disabling the GTK UI plugin leaving its event handlers registered
+* Fixed a feed being updated twice per interval after its TTL changed during a scheduled update, with each further TTL change adding another update per interval
+* Fixed "Set now" for a subscription's last matched timestamp storing local wall clock time labelled as UTC, which could skip or re-add items for users at a non-zero UTC offset; a feed's last update was also shown with the wrong offset; set the last match again for any subscription where it was set with "Set now" before this fix
+* Fixed a crash in the subscription dialog when the Label plugin is disabled, and a crash in the path chooser's completion list on pointer motion events
+* Fixed `$torrentlist` not being replaced in the HTML part of a notification email when it ended the message or was followed by other text on the same line
 
 ## v2.1.5 - 2021-03-21
 
