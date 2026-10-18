@@ -43,7 +43,7 @@ YaRSS2 = "deluge_yarss2:WebUIPlugin"
 dev = [
     "deluge>=2.2,<2.3",
     # PyPI wheels exist only for 2.0.x (up to cp313).
-    "libtorrent>=2.0,<2.1",
+    "libtorrent>=2.0,<2.2",
     # Stock Deluge 2.2.0 imports pkg_resources, which setuptools 82 removed.
     "setuptools<82",
     # 26.3 removed crypto.X509Req, which deluged needs at startup.
